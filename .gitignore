@@ -1,0 +1,8 @@
+*.pyc
+.idea
+iot_api/iot_api.db
+/venv
+/.virtualenvs/
+.env
+.vscode/*
+logs/backend.log
