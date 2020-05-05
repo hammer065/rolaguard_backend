@@ -51,6 +51,8 @@ TTN_COLLECTOR = 'ttn_collector'
 
 LOG = iot_logging.getLogger(__name__)
 
+USE_RECAPTCHA = ("RECAPTCHA_SECRET_KEY" in os.environ) and (len(os.environ['RECAPTCHA_SECRET_KEY']) > 0)
+
 data_collector_parser = reqparse.RequestParser()
 data_collector_parser.add_argument("name", help="Missing name attribute", required=True)
 data_collector_parser.add_argument("description", help="Missing description attribute", required=False)
@@ -72,7 +74,7 @@ register_parser.add_argument("phone", help="Missing phone attribute.", required=
 register_parser.add_argument("user_roles", help="Missing user_roles attribute.", required=False)
 register_parser.add_argument("data_collectors", help="Missing data_collectors attribute.", required=False,
                              action="append")
-register_parser.add_argument("recaptcha_token", help="Missing recaptcha_token attribute.", required=False)
+register_parser.add_argument("recaptcha_token", help="Missing recaptcha_token attribute.", required=USE_RECAPTCHA)
 
 login_parser = reqparse.RequestParser()
 login_parser.add_argument("username", dest="username_or_email", help="You have to enter username or email",
@@ -112,7 +114,7 @@ user_resend_activation_parser.add_argument("email", help="Missing email attribut
 
 user_recover_password_parser = reqparse.RequestParser()
 user_recover_password_parser.add_argument("email", dest="username_or_email", help="Missing email or username attribute.", required=True)
-user_recover_password_parser.add_argument("recaptcha_token", help="Missing recaptcha_token attribute.", required=True)
+user_recover_password_parser.add_argument("recaptcha_token", help="Missing recaptcha_token attribute.", required=USE_RECAPTCHA)
 
 user_change_password_by_recovery_parser = reqparse.RequestParser()
 user_change_password_by_recovery_parser.add_argument("password", help="Missing password attribute.", required=True)
@@ -641,10 +643,13 @@ class PasswordRecoveryAPI(Resource):
         else:
             current_user = User.find_by_username(data["username_or_email"])
 
-        recaptcha_valid= validate_recaptcha_token(data['recaptcha_token'])
-        if not recaptcha_valid:
-            LOG.debug('Got bad recaptcha token while triying to recover password')
-            return internal("Got bad recaptcha token while triying to recover password")
+        if USE_RECAPTCHA:
+            recaptcha_valid= validate_recaptcha_token(data['recaptcha_token'])
+            if not recaptcha_valid:
+                LOG.debug('Got bad recaptcha token while triying to recover password')
+                return internal("Got bad recaptcha token while triying to recover password")
+        else:
+            LOG.warning("Recaptcha was not validated because the credentials were not defined.")
 
         if current_user and current_user.active and not current_user.deleted:
             token = hashlib.sha256((current_user.full_name + str(datetime.datetime.now())).encode())
@@ -1060,13 +1065,12 @@ class Register(Resource):
             if admin_user_identity is not None:
                 if not is_admin_user(User.find_by_username(get_jwt_identity()).id):
                     return forbidden()
-            else:
-                if 'recaptcha_token' not in data or len(data['recaptcha_token'])==0:
-                    return bad_request("Missing recaptcha_token attribute.")
-
+            elif USE_RECAPTCHA:
                 recaptcha_valid= validate_recaptcha_token(data['recaptcha_token'])
                 if not recaptcha_valid:
                     return bad_request('Bad recaptcha token')
+            else:
+                LOG.warning("Recaptcha was not validated because the credentials were not defined.")
 
             user_roles = []
             organization_id = None
@@ -2632,6 +2636,21 @@ class QuarantineRemoveManuallyAPI(Resource):
         params = json.loads(request.get_data())
         quarantine_id = params['id']
         resolution_comment = params['comment']
+
+        alert_id = Quarantine.find_by_id(quarantine_id).alert_id
+        alert = Alert.find_one(alert_id)
+
+        alert = Alert('LAF-601', 
+                      device_id = alert.device_id,
+                      device_session_id = alert.device_session_id,
+                      gateway_id = alert.gateway_id,
+                      data_collector_id = alert.data_collector_id,
+                      created_at = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                      packet_id = alert.packet_id,
+                      parameters= '{"user_id" : "%s"}'.format(user_identity),
+                      show = True)
+        alert.save()
+        
         Quarantine.remove_from_quarantine_manually(quarantine_id, user.id, resolution_comment)
         return 200
 
