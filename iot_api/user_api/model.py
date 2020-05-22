@@ -789,7 +789,7 @@ class Alert(db.Model):
 class Gateway(db.Model):
     __tablename__ = 'gateway'
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    gw_hex_id = Column(String(16), nullable=True)
+    gw_hex_id = Column(String(100), nullable=True)
     location_latitude = Column(Float, nullable=True)
     location_longitude = Column(Float, nullable=True)
     data_collector_id = Column(BigInteger, db.ForeignKey("data_collector.id"), nullable=False)
