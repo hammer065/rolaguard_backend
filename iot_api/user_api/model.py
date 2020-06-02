@@ -790,20 +790,24 @@ class Gateway(db.Model):
     __tablename__ = 'gateway'
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     gw_hex_id = Column(String(100), nullable=True)
+    name = Column(String, nullable=True)
+    vendor = Column(String, nullable=True)
     location_latitude = Column(Float, nullable=True)
     location_longitude = Column(Float, nullable=True)
     data_collector_id = Column(BigInteger, db.ForeignKey("data_collector.id"), nullable=False)
     organization_id = Column(BigInteger, db.ForeignKey("organization.id"), nullable=False)
-    
+    connected = Column(Boolean, nullable=False, default=True)
+    last_activity = Column(DateTime(timezone=True), nullable=False) 
     
 class Device(db.Model):
     __tablename__ = 'device'
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     dev_eui = Column(String(16), nullable=False)
+    name = Column(String, nullable=True)
+    vendor = Column(String, nullable=True)
     join_eui = Column(String(16), nullable=True)
     organization_id = Column(BigInteger, ForeignKey("organization.id"), nullable=False)
-    first_up_timestamp = Column(db.DateTime(timezone=True), nullable=True)
-    last_up_timestamp = Column(DateTime(timezone=True), nullable=True)
+
     repeated_dev_nonce = Column(Boolean, nullable=True)
     join_request_counter = Column(Integer, nullable=False, default=0)
     join_accept_counter = Column(Integer, nullable=False, default=0)
@@ -811,6 +815,12 @@ class Device(db.Model):
     join_inferred = Column(Boolean, nullable=True, default=False)
     is_otaa = Column(Boolean, nullable=True)
     last_packet_id = Column(BigInteger, ForeignKey("packet.id"), nullable=True)
+    first_up_timestamp = Column(db.DateTime(timezone=True), nullable=True)
+    last_up_timestamp = Column(DateTime(timezone=True), nullable=True)
+
+    connected = Column(Boolean, nullable=False, default=True)
+    last_activity = Column(DateTime(timezone=True), nullable=True)
+    activity_freq = Column(Float, nullable=True)
 
     def to_json(self):
         return {

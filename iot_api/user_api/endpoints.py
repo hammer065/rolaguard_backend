@@ -145,8 +145,6 @@ def is_admin_user(user_id):
     role_id = role.id
     if not role_id:
         return None
-    if not role_id:
-        return None
     if UserToUserRole.find_by_user_id_and_user_role_id(user_id, role_id):
         return True
     else:

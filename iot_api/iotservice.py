@@ -8,8 +8,10 @@
 
 import os
 
+from time import sleep
 import iot_logging
 from iot_api.user_api import endpoints
+from iot_api.user_api import Inventory
 from iot_api import app, api, jwt
 from iot_api.user_api import db
 from iot_api import mail, socketio
@@ -135,6 +137,8 @@ api.add_resource(endpoints.QuarantineListCountAPI, '/api/v1.0/quarantined_device
 api.add_resource(endpoints.QuarantinedDevicesCountAPI, '/api/v1.0/quarantined_devices/devices_count') # count of quarantined devices
 api.add_resource(endpoints.QuarantineRemoveManuallyAPI, '/api/v1.0/quarantined_devices/remove') # remove devices from quarantine (mark as resolved)
 #endregion
+
+api.add_resource(Inventory.DeviceInventoryAPI, '/api/v1.0/inventory')
 
 if __name__ == '__main__':
     socketio.run(app, port=5000)
