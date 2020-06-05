@@ -138,7 +138,8 @@ api.add_resource(endpoints.QuarantinedDevicesCountAPI, '/api/v1.0/quarantined_de
 api.add_resource(endpoints.QuarantineRemoveManuallyAPI, '/api/v1.0/quarantined_devices/remove') # remove devices from quarantine (mark as resolved)
 #endregion
 
-api.add_resource(Inventory.DeviceInventoryAPI, '/api/v1.0/inventory')
+api.add_resource(Inventory.InventoryListAPI, '/api/v1.0/inventory_list')
+api.add_resource(Inventory.InventoryCountAPI, '/api/v1.0/inventory_count')
 
 if __name__ == '__main__':
     socketio.run(app, port=5000)

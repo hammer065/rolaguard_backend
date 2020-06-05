@@ -805,6 +805,7 @@ class Device(db.Model):
     dev_eui = Column(String(16), nullable=False)
     name = Column(String, nullable=True)
     vendor = Column(String, nullable=True)
+    app_name = Column(String, nullable=True)
     join_eui = Column(String(16), nullable=True)
     organization_id = Column(BigInteger, ForeignKey("organization.id"), nullable=False)
 
