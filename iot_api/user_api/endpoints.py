@@ -1684,11 +1684,12 @@ class DataCollectorListAPI(Resource):
                 data_collector_list = result.items
                 headers = {'total-pages': result.pages, 'total-items': result.total}
                 if is_user_system:
-                    return {"data_collectors": [dc.to_json_for_system() for dc in data_collector_list]}, 200, headers
+                    response = {
+                        "data_collectors": [dc.to_json_for_system() for dc in data_collector_list if dc.status!=DataCollectorStatus.DISABLED]
+                        }
                 else:
-                    return {
-                            "data_collectors": [dc.to_json_for_list() for dc in data_collector_list if dc.status!=DataCollectorStatus.DISABLED]
-                        }, 200, headers
+                    response = {"data_collectors": [dc.to_json_for_list() for dc in data_collector_list]}
+                return response, 200, headers
         except Exception as exc:
             import sys
             _, exc_obj, exc_tb = sys.exc_info()
