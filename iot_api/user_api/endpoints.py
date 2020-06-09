@@ -159,8 +159,6 @@ def is_system(user_id):
     role_id = role.id
     if not role_id:
         return None
-    if not role_id:
-        return None
     if UserToUserRole.find_by_user_id_and_user_role_id(user_id, role_id):
         return True
     else:
@@ -1686,11 +1684,12 @@ class DataCollectorListAPI(Resource):
                 data_collector_list = result.items
                 headers = {'total-pages': result.pages, 'total-items': result.total}
                 if is_user_system:
-                    return {"data_collectors": list(
-                        map(lambda data_collector: data_collector.to_json_for_system(), data_collector_list))}, 200, headers
+                    response = {
+                        "data_collectors": [dc.to_json_for_system() for dc in data_collector_list if dc.status!=DataCollectorStatus.DISABLED]
+                        }
                 else:
-                    return {"data_collectors": list(
-                        map(lambda data_collector: data_collector.to_json_for_list(), data_collector_list))}, 200, headers
+                    response = {"data_collectors": [dc.to_json_for_list() for dc in data_collector_list]}
+                return response, 200, headers
         except Exception as exc:
             import sys
             _, exc_obj, exc_tb = sys.exc_info()
