@@ -5,9 +5,9 @@ from flask_restful import Resource
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 import iot_logging
-LOG = iot_logging.getLogger(__name__)
+log = iot_logging.getLogger(__name__)
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, distinct
 from sqlalchemy.sql import select, expression, text
 
 from iot_api.user_api import db
@@ -19,7 +19,21 @@ from collections import defaultdict
 
 
 def list_all(organization_id, page=None, size=None,
-             vendor=None, gateway_id=None, data_collector_id=None, asset_type=None):
+             vendors=None, gateway_ids=None, data_collector_ids=None,
+             tag_ids=None, asset_type=None):
+    """ List assets of an organization.
+    Parameters:
+        - organization_id: which organization.
+        - page: for pagination.
+        - size: for pagination.
+        - vendors[]: for filtering, lists only assets that have ANY one of these vendors.
+        - gateway_ids[]: for filtering, list only the assets connected to ANY one of these gateways.
+        - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
+        - tag_ids[]: for filtering, list only the assest that have ALL these tags.
+        - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+    Returns:
+        - A dict with the list of assets.
+    """
     # Build two queries, one for devices and one for gateways
     s1 = select([
         Device.dev_eui.label('id'),
@@ -43,15 +57,17 @@ def list_all(organization_id, page=None, size=None,
             where(Gateway.data_collector_id == DataCollector.id)
 
     # If filter parameters were given, add the respective where clauses to the queries
-    if vendor:
-        s1 = s1.where(Device.vendor == vendor)
-        s2 = s2.where(Gateway.vendor == vendor)
-    if gateway_id:
-        s1 = s1.where(GatewayToDevice.gateway_id == gateway_id)
-        s2 = s2.where(Gateway.id == gateway_id)
-    if data_collector_id:
-        s1 = s1.where(DataCollector.id == data_collector_id)
-        s2 = s2.where(DataCollector.id == data_collector_id)
+    if vendors:
+        s1 = s1.where(Device.vendor.in_(vendors))
+        s2 = s2.where(Gateway.vendor.in_(vendors))
+    if gateway_ids:
+        s1 = s1.where(GatewayToDevice.gateway_id.in_(gateway_ids))
+        s2 = s2.where(Gateway.id.in_(gateway_ids))
+    if data_collector_ids:
+        s1 = s1.where(DataCollector.id.in_(data_collector_ids))
+        s2 = s2.where(DataCollector.id.in_(data_collector_ids))
+    if tag_ids:
+        pass # TODO: implement AND tag filtering
 
     # Filter by device type if the parameter was given, else, make a union with queries.
     query = s1.union(s2)
@@ -72,8 +88,20 @@ def list_all(organization_id, page=None, size=None,
         return db.session.query(query)
 
 
-def count_per_vendor(organization_id, vendor=None, gateway_id=None, data_collector_id=None, asset_type=None):
-    """ Count the number of assets per vendor. All the parameters are for filtering """
+def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
+                     data_collector_ids=None, tag_ids=None, asset_type=None):
+    """ Count the number of assets per vendor.
+    Parameters:
+        - organization_id: which organization.
+        - vendors[]: for filtering, lists only assets that have ANY one of these vendors.
+        - gateway_ids[]: for filtering, list only the assets connected to ANY one of these gateways.
+        - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
+        - tag_ids[]: for filtering, list only the assest that have ALL these tags.
+        - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+    Returns:
+        - List of dicts, where each dict has the vendor id and name and the count
+        of assets.
+    """
     # Build two queries, one for devices and one for gateways
     s1 = db.session.query(Device.vendor, func.count(Device.id)).\
         join(DataCollectorToDevice).\
@@ -85,15 +113,17 @@ def count_per_vendor(organization_id, vendor=None, gateway_id=None, data_collect
         filter(Gateway.organization_id==organization_id)
 
     # If the filtering arguments are given, add the respective where clauses to the queries
-    if vendor:
-        s1 = s1.filter(Device.vendor==vendor)
-        s2 = s2.filter(Gateway.vendor==vendor)
-    if gateway_id:
-        s1 = s1.filter(GatewayToDevice.gateway_id == gateway_id)
-        s2 = s2.filter(Gateway.id == gateway_id)
-    if data_collector_id:
-        s1 = s1.filter(DataCollector.id == data_collector_id)
-        s2 = s2.filter(Gateway.data_collector_id == data_collector_id)
+    if vendors:
+        s1 = s1.filter(Device.vendor.in_(vendors))
+        s2 = s2.filter(Gateway.vendor.in_(vendors))
+    if gateway_ids:
+        s1 = s1.filter(GatewayToDevice.gateway_id.in_(gateway_ids))
+        s2 = s2.filter(Gateway.id.in_(gateway_ids))
+    if data_collector_ids:
+        s1 = s1.filter(DataCollector.id.in_(data_collector_ids))
+        s2 = s2.filter(Gateway.data_collector_id.in_(data_collector_ids))
+    if tag_ids:
+        pass # TODO: implement AND tag filtering
 
     # Execute the queries, filtering by asset type
     all_queries = None
@@ -111,9 +141,20 @@ def count_per_vendor(organization_id, vendor=None, gateway_id=None, data_collect
     return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
 
 
-def count_per_gateway(organization_id, vendor=None, gateway_id=None,
-                            data_collector_id=None, asset_type=None):
-    """ Count the number of assets per gateway. All the parameters are for filtering """
+def count_per_gateway(organization_id, vendors=None, gateway_ids=None,
+                      data_collector_ids=None, tag_ids=None, asset_type=None):
+    """ Count the number of assets per gateway.
+    Parameters:
+        - organization_id: which organization.
+        - vendors[]: for filtering, lists only assets that have ANY one of these vendors.
+        - gateway_ids[]: for filtering, list only the assets connected to ANY one of these gateways.
+        - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
+        - tag_ids[]: for filtering, list only the assest that have ALL these tags.
+        - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+    Returns:
+        - List of dicts, where each dict has the gateway id and name and the count
+        of assets.
+    """
     # Query to count the number of devices per gateway
     query = db.session.query(Gateway.id, Gateway.gw_hex_id, func.count(Gateway.gw_hex_id)).\
         join(GatewayToDevice).\
@@ -122,12 +163,13 @@ def count_per_gateway(organization_id, vendor=None, gateway_id=None,
         filter(Gateway.organization_id==organization_id)
     
     # If the arguments are given, filter adding the respective where clause
-    if vendor:
-        query=query.filter(or_(Device.vendor==vendor, Gateway.vendor==vendor))
-    if gateway_id:
-        query=query.filter(Gateway.id==gateway_id)
-    if data_collector_id:
-        query=query.filter(Gateway.data_collector_id==data_collector_id)
+    if vendors:
+        query=query.filter(Device.vendor.in_(vendors)) 
+        # TODO: is not counting the gateways 
+    if gateway_ids:
+        query=query.filter(Gateway.id.in_(gateway_ids))
+    if data_collector_ids:
+        query=query.filter(Gateway.data_collector_id.in_(data_collector_ids))
     
     # Execute the query and build the response
     counts = defaultdict(lambda: {'name' : None, 'count' : 1}) # Starts with one because the gateway counts as an asset
@@ -141,13 +183,25 @@ def count_per_gateway(organization_id, vendor=None, gateway_id=None,
     return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
 
 
-def count_per_datacollector(organization_id, vendor=None, gateway_id=None,
-                                  data_collector_id=None, asset_type=None):
-    """ Count the number of assets per data collector. All the parameters are for filtering """
+def count_per_datacollector(organization_id, vendors=None, gateway_ids=None,
+                            data_collector_ids=None, tag_ids=None, asset_type=None):
+    """ Count the number of assets per data collector.
+    Parameters:
+        - organization_id: which organization.
+        - vendors[]: for filtering, lists only assets that have ANY one of these vendors.
+        - gateway_ids[]: for filtering, list only the assets connected to ANY one of these gateways.
+        - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
+        - tag_ids[]: for filtering, list only the assest that have ALL these tags.
+        - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+    Returns:
+        - List of dicts, where each dict has the data_collector id and name and the count
+        of assets.
+    """
     # Base queries, one for devices and one for gateways
-    s1 = db.session.query(DataCollector.id, DataCollector.name, func.count(DataCollector.id)).\
-        join(DataCollectorToDevice).\
-        join(Device).\
+    s1 = db.session.query(DataCollector.id, DataCollector.name, func.count(distinct(Device.id))).\
+        select_from(Device).\
+        join(DataCollectorToDevice).join(DataCollector).\
+        join(GatewayToDevice).join(Gateway).\
         group_by(DataCollector.id, DataCollector.name).\
         filter(DataCollector.organization_id == organization_id)
     s2 = db.session.query(DataCollector.id, DataCollector.name, func.count(DataCollector.id)).\
@@ -156,19 +210,21 @@ def count_per_datacollector(organization_id, vendor=None, gateway_id=None,
         filter(DataCollector.organization_id==organization_id)
 
     # If some filtering parameters are giveng, add the respective where clauses to the queries
-    if vendor:
-        s1 = s1.filter(Device.vendor==vendor)
-        s2 = s2.filter(Gateway.vendor==vendor)
-    if gateway_id:
-        s1 = s1.filter(GatewayToDevice.gateway_id == gateway_id)
-        s2 = s2.filter(Gateway.id == gateway_id)
-    if data_collector_id:
-        s1 = s1.filter(DataCollector.id == data_collector_id)
-        s2 = s2.filter(Gateway.data_collector_id == data_collector_id)
+    if vendors:
+        s1 = s1.filter(Device.vendor.in_(vendors))
+        s2 = s2.filter(Gateway.vendor.in_(vendors))
+    if gateway_ids:
+        s1 = s1.filter(Gateway.id.in_(gateway_ids))
+        s2 = s2.filter(Gateway.id.in_(gateway_ids))
+    if data_collector_ids:
+        s1 = s1.filter(DataCollector.id.in_(data_collector_ids))
+        s2 = s2.filter(Gateway.data_collector_id.in_(data_collector_ids))
+    if tag_ids:
+        pass # TODO: implement AND tag filtering
 
     # Run the queries
     dev_per_dc = s1.all()
-    gw_per_dc = s1.all()
+    gw_per_dc = s2.all()
 
     # Filter the queries by asset type if the parameter is given
     all_queries = []
@@ -187,9 +243,21 @@ def count_per_datacollector(organization_id, vendor=None, gateway_id=None,
     return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
 
 
-def count_per_tag(organization_id, vendor=None, gateway_id=None, data_collector_id=None, asset_type=None):
-    """ Count the number of assets per tag. All the parameters are for filtering """
-    """ TODO: this function returns the total number of assets since we dont have tags for now """
+def count_per_tag(organization_id, vendors=None, gateway_ids=None,
+                  data_collector_ids=None, tag_ids=None, asset_type=None):
+    """ Count the number of assets per tag.
+    Parameters:
+        - organization_id: which organization.
+        - vendors[]: for filtering, lists only assets that have ANY one of these vendors.
+        - gateway_ids[]: for filtering, list only the assets connected to ANY one of these gateways.
+        - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
+        - tag_ids[]: for filtering, list only the assest that have ALL these tags.
+        - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+    Returns:
+        - List of dicts, where each dict has the tag id and name and the count
+        of assets.
+    """
+    # TODO: this function returns the total number of assets since we dont have tags for now
     total_devs = db.session.query(func.count(Device.id)).\
         filter(Device.organization_id==organization_id).all()
     total_gws = db.session.query(func.count(Gateway.id)).\

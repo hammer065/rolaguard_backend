@@ -12,15 +12,16 @@ from iot_api.user_api.repository import Assets
 
 class AssetsListAPI(Resource):
     """ Endpoint to list assets (devices + gateways)
-    Request arguments (all optional):
-    - page: for pagination.
-    - size: for pagination.
-    - vendor: for filtering, lists only assets with this vendor.
-    - gateway_id: for filtering, list only this gateway and the devices connected to it.
-    - data_collector_id: for filtering, list only the assest related to this data collector.
-    - asset_type: for filtering, list only this type of devices ("device" or "gateway").
+    Request parameters (all optional):
+        - page: for pagination.
+        - size: for pagination.
+        - vendors[]: for filtering, lists only assets that have ANY one of these vendors.
+        - gateway_ids[]: for filtering, list only the assets connected to ANY one of these gateways.
+        - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
+        - tag_ids[]: for filtering, list only the assest that have ALL these tags.
+        - asset_type: for filtering, list only this type of asset ("device" or "gateway").
     Returns:
-    JSON with list of assets (see code for more details about the sub fields).
+        - JSON with list of assets (see code for more details about the fields).
     """
     @jwt_required
     def get(self):
@@ -36,10 +37,11 @@ class AssetsListAPI(Resource):
             results = Assets.list_all(
                 organization_id=organization_id,
                 page=page, size=size,
-                vendor = request.args.get('vendor', default=None, type=str),
-                gateway_id = request.args.get('gateway_id', default=None, type=int),
-                data_collector_id = request.args.get('data_collector_id', default=None, type=int),
-                asset_type = request.args.get('asset_type', default=None, type=str)
+                vendors=request.args.getlist('vendors[]'),
+                gateway_ids=request.args.getlist('gateway_ids[]'),
+                data_collector_ids=request.args.getlist('data_collector_ids[]'),
+                tag_ids=request.args.getlist('data_collector_ids[]'),
+                asset_type=request.args.get('asset_type', type=str)
             )
 
             devices = [{
@@ -59,15 +61,15 @@ class AssetsListAPI(Resource):
 
 
 class AssetsPerVendorCountAPI(Resource):
-    """ Endpoint to count assets grouped per vendor (devices + gateways).
-    Request arguments (all optional):
-    - vendor: for filtering, counts only assets with this vendor.
-    - gateway_id: for filtering, only counts this gateway and the devices connected to it.
-    - data_collector_id: for filtering, only counts the assest related to this data collector.
-    - asset_type: for filtering, only counts this type of devices ("device" or "gateway").
+    """ Endpoint to count assets (devices+gateways) grouped by vendor.
+    Request parameters: 
+        - vendors[]: for filtering, lists only assets that have ANY one of these vendors.
+        - gateway_ids[]: for filtering, list only the assets connected to ANY one of these gateways.
+        - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
+        - tag_ids[]: for filtering, list only the assest that have ALL these tags.
+        - asset_type: for filtering, list only this type of asset ("device" or "gateway").
     Returns:
-    - A JSON with 4 fields, the names are self-explanatory: n_assets_per_vendor, n_assets_per_gateway, 
-        n_assets_per_datacollector, n_assets_per_tags
+        - A list of JSONs, where each JSON has three fields: id, name, count.
     """
     @jwt_required
     def get(self):
@@ -78,17 +80,13 @@ class AssetsPerVendorCountAPI(Resource):
                 return abort(403, error='forbidden access')
             organization_id = user.organization_id
 
-            vendor = request.args.get('vendor', default=None, type=str)
-            gateway_id = request.args.get('gateway_id', default=None, type=int)
-            data_collector_id = request.args.get('data_collector_id', default=None, type=int)
-            asset_type = request.args.get('asset_type', default=None, type=str)
-
             response = Assets.count_per_vendor(
                 organization_id,
-                vendor=vendor,
-                gateway_id=gateway_id,
-                data_collector_id=data_collector_id,
-                asset_type=asset_type
+                vendors = request.args.getlist('vendors[]'),
+                gateway_ids = request.args.getlist('gateway_ids[]'),
+                data_collector_ids = request.args.getlist('data_collector_ids[]'),
+                tag_ids = request.args.getlist('tag_ids[]'),
+                asset_type = request.args.get('asset_type', default=None, type=str)
             )
 
             return response, 200
@@ -97,15 +95,15 @@ class AssetsPerVendorCountAPI(Resource):
             return {"message" : "There was an error trying to count assets"}, 400
 
 class AssetsPerGatewayCountAPI(Resource):
-    """ Endpoint to count assets grouped by gateway (devices + gateways).
-    Request arguments (all optional):
-    - vendor: for filtering, counts only assets with this vendor.
-    - gateway_id: for filtering, only counts this gateway and the devices connected to it.
-    - data_collector_id: for filtering, only counts the assest related to this data collector.
-    - asset_type: for filtering, only counts this type of devices ("device" or "gateway").
+    """ Endpoint to count assets (devices+gateways) grouped by gateway.
+    Request parameters: 
+        - vendors[]: for filtering, lists only assets that have ANY one of these vendors.
+        - gateway_ids[]: for filtering, list only the assets connected to ANY one of these gateways.
+        - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
+        - tag_ids[]: for filtering, list only the assest that have ALL these tags.
+        - asset_type: for filtering, list only this type of asset ("device" or "gateway").
     Returns:
-    - A JSON with 4 fields, the names are self-explanatory: n_assets_per_vendor, n_assets_per_gateway, 
-        n_assets_per_datacollector, n_assets_per_tags
+        - A list of JSONs, where each JSON has three fields: id, name, count.
     """
     @jwt_required
     def get(self):
@@ -116,17 +114,13 @@ class AssetsPerGatewayCountAPI(Resource):
                 return abort(403, error='forbidden access')
             organization_id = user.organization_id
 
-            vendor = request.args.get('vendor', default=None, type=str)
-            gateway_id = request.args.get('gateway_id', default=None, type=int)
-            data_collector_id = request.args.get('data_collector_id', default=None, type=int)
-            asset_type = request.args.get('asset_type', default=None, type=str)
-
             response = Assets.count_per_gateway(
                 organization_id,
-                vendor=vendor,
-                gateway_id=gateway_id,
-                data_collector_id=data_collector_id,
-                asset_type=asset_type
+                vendors = request.args.getlist('vendors[]'),
+                gateway_ids = request.args.getlist('gateway_ids[]'),
+                data_collector_ids = request.args.getlist('data_collector_ids[]'),
+                tag_ids = request.args.getlist('tag_ids[]'),
+                asset_type = request.args.get('asset_type', default=None, type=str)
             )
 
             return response, 200
@@ -136,16 +130,15 @@ class AssetsPerGatewayCountAPI(Resource):
             
 
 class AssetsPerDatacollectorCountAPI(Resource):
-    """ Endpoint to count assets (devices + gateways). It simply parses the arguments and call
-    the functions to count the assets.
-    Request arguments (all optional):
-    - vendor: for filtering, counts only assets with this vendor.
-    - gateway_id: for filtering, only counts this gateway and the devices connected to it.
-    - data_collector_id: for filtering, only counts the assest related to this data collector.
-    - asset_type: for filtering, only counts this type of devices ("device" or "gateway").
+    """ Endpoint to count assets (devices+gateways) grouped per data-collector .
+    Request parameters: 
+        - vendors[]: for filtering, lists only assets that have ANY one of these vendors.
+        - gateway_ids[]: for filtering, list only the assets connected to ANY one of these gateways.
+        - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
+        - tag_ids[]: for filtering, list only the assest that have ALL these tags.
+        - asset_type: for filtering, list only this type of asset ("device" or "gateway").
     Returns:
-    - A JSON with 4 fields, the names are self-explanatory: n_assets_per_vendor, n_assets_per_gateway, 
-        n_assets_per_datacollector, n_assets_per_tags
+        - A list of JSONs, where each JSON has three fields: id, name, count.
     """
     @jwt_required
     def get(self):
@@ -156,17 +149,13 @@ class AssetsPerDatacollectorCountAPI(Resource):
                 return abort(403, error='forbidden access')
             organization_id = user.organization_id
 
-            vendor = request.args.get('vendor', default=None, type=str)
-            gateway_id = request.args.get('gateway_id', default=None, type=int)
-            data_collector_id = request.args.get('data_collector_id', default=None, type=int)
-            asset_type = request.args.get('asset_type', default=None, type=str)
-
             response = Assets.count_per_datacollector(
                 organization_id,
-                vendor=vendor,
-                gateway_id=gateway_id,
-                data_collector_id=data_collector_id,
-                asset_type=asset_type
+                vendors = request.args.getlist('vendors[]'),
+                gateway_ids = request.args.getlist('gateway_ids[]'),
+                data_collector_ids = request.args.getlist('data_collector_ids[]'),
+                tag_ids = request.args.getlist('tag_ids[]'),
+                asset_type = request.args.get('asset_type', default=None, type=str)
             )
 
             return response, 200
@@ -176,16 +165,15 @@ class AssetsPerDatacollectorCountAPI(Resource):
 
 
 class AssetsPerTagCountAPI(Resource):
-    """ Endpoint to count assets (devices + gateways). It simply parses the arguments and call
-    the functions to count the assets.
-    Request arguments (all optional):
-    - vendor: for filtering, counts only assets with this vendor.
-    - gateway_id: for filtering, only counts this gateway and the devices connected to it.
-    - data_collector_id: for filtering, only counts the assest related to this data collector.
-    - asset_type: for filtering, only counts this type of devices ("device" or "gateway").
+    """ Endpoint to count assets (devices+gateways) grouped per tag.
+    Request parameters: 
+        - vendors[]: for filtering, lists only assets that have ANY one of these vendors.
+        - gateway_ids[]: for filtering, list only the assets connected to ANY one of these gateways.
+        - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
+        - tag_ids[]: for filtering, list only the assest that have ALL these tags.
+        - asset_type: for filtering, list only this type of asset ("device" or "gateway").
     Returns:
-    - A JSON with 4 fields, the names are self-explanatory: n_assets_per_vendor, n_assets_per_gateway, 
-        n_assets_per_datacollector, n_assets_per_tags
+        - A list of JSONs, where each JSON has three fields: id, name, count.
     """
     @jwt_required
     def get(self):
@@ -196,17 +184,13 @@ class AssetsPerTagCountAPI(Resource):
                 return abort(403, error='forbidden access')
             organization_id = user.organization_id
 
-            vendor = request.args.get('vendor', default=None, type=str)
-            gateway_id = request.args.get('gateway_id', default=None, type=int)
-            data_collector_id = request.args.get('data_collector_id', default=None, type=int)
-            asset_type = request.args.get('asset_type', default=None, type=str)
-
             response = Assets.count_per_tag(
                 organization_id,
-                vendor=vendor,
-                gateway_id=gateway_id,
-                data_collector_id=data_collector_id,
-                asset_type=asset_type
+                vendors = request.args.getlist('vendors[]'),
+                gateway_ids = request.args.getlist('gateway_ids[]'),
+                data_collector_ids = request.args.getlist('data_collector_ids[]'),
+                tag_ids = request.args.getlist('tag_ids[]'),
+                asset_type = request.args.get('asset_type', default=None, type=str)
             )
             return response, 200
 
