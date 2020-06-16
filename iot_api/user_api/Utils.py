@@ -5,10 +5,10 @@ def is_admin_user(user_id):
     """ verify if specified username belongs to user with role 'User_Admin' """
     role = UserRole.find_by_role_name(RoleTypes.User_Admin.value)
     if not role:
-        return None
+        return False
     role_id = role.id
     if not role_id:
-        return None
+        return False
     if UserToUserRole.find_by_user_id_and_user_role_id(user_id, role_id):
         return True
     else:
@@ -18,10 +18,10 @@ def is_regular_user(user_id):
     """ verify if specified username belongs to user with role 'Regular_User' """
     role = UserRole.find_by_role_name(RoleTypes.Regular_User.value)
     if not role:
-        return None
+        return False
     role_id = role.id
     if not role_id:
-        return None
+        return False
     if UserToUserRole.find_by_user_id_and_user_role_id(user_id, role_id):
         return True
     else:
@@ -34,12 +34,12 @@ def is_regular_user(user_id):
 def is_system(user_id):
     role = UserRole.find_by_role_name(RoleTypes.System.value)
     if not role:
-        return None
+        return False
     role_id = role.id
     if not role_id:
-        return None
+        return False
     if not role_id:
-        return None
+        return False
     if UserToUserRole.find_by_user_id_and_user_role_id(user_id, role_id):
         return True
     else:
