@@ -7,7 +7,7 @@ LOG = iot_logging.getLogger(__name__)
 
 from iot_api.user_api.model import User
 from iot_api.user_api.Utils import is_system
-from iot_api.user_api.repository import Assets
+from iot_api.user_api.repository import InventoryAssets
 
 
 class AssetsListAPI(Resource):
@@ -34,7 +34,7 @@ class AssetsListAPI(Resource):
             page = request.args.get('page', default=1, type=int)
             size = request.args.get('size', default=20, type=int)
             
-            results = Assets.list_all(
+            results = InventoryAssets.list_all(
                 organization_id=organization_id,
                 page=page, size=size,
                 vendors=request.args.getlist('vendors[]'),
@@ -80,7 +80,7 @@ class AssetsPerVendorCountAPI(Resource):
                 return abort(403, error='forbidden access')
             organization_id = user.organization_id
 
-            response = Assets.count_per_vendor(
+            response = InventoryAssets.count_per_vendor(
                 organization_id = organization_id,
                 vendors = request.args.getlist('vendors[]'),
                 gateway_ids = request.args.getlist('gateway_ids[]'),
@@ -114,7 +114,7 @@ class AssetsPerGatewayCountAPI(Resource):
                 return abort(403, error='forbidden access')
             organization_id = user.organization_id
 
-            response = Assets.count_per_gateway(
+            response = InventoryAssets.count_per_gateway(
                 organization_id = organization_id,
                 vendors = request.args.getlist('vendors[]'),
                 gateway_ids = request.args.getlist('gateway_ids[]'),
@@ -149,7 +149,7 @@ class AssetsPerDatacollectorCountAPI(Resource):
                 return abort(403, error='forbidden access')
             organization_id = user.organization_id
 
-            response = Assets.count_per_datacollector(
+            response = InventoryAssets.count_per_datacollector(
                 organization_id = organization_id,
                 vendors = request.args.getlist('vendors[]'),
                 gateway_ids = request.args.getlist('gateway_ids[]'),
@@ -184,7 +184,7 @@ class AssetsPerTagCountAPI(Resource):
                 return abort(403, error='forbidden access')
             organization_id = user.organization_id
 
-            response = Assets.count_per_tag(
+            response = InventoryAssets.count_per_tag(
                 organization_id = organization_id,
                 vendors = request.args.getlist('vendors[]'),
                 gateway_ids = request.args.getlist('gateway_ids[]'),
