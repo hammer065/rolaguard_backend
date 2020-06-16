@@ -81,7 +81,7 @@ class AssetsPerVendorCountAPI(Resource):
             organization_id = user.organization_id
 
             response = Assets.count_per_vendor(
-                organization_id,
+                organization_id = organization_id,
                 vendors = request.args.getlist('vendors[]'),
                 gateway_ids = request.args.getlist('gateway_ids[]'),
                 data_collector_ids = request.args.getlist('data_collector_ids[]'),
@@ -115,7 +115,7 @@ class AssetsPerGatewayCountAPI(Resource):
             organization_id = user.organization_id
 
             response = Assets.count_per_gateway(
-                organization_id,
+                organization_id = organization_id,
                 vendors = request.args.getlist('vendors[]'),
                 gateway_ids = request.args.getlist('gateway_ids[]'),
                 data_collector_ids = request.args.getlist('data_collector_ids[]'),
@@ -150,7 +150,7 @@ class AssetsPerDatacollectorCountAPI(Resource):
             organization_id = user.organization_id
 
             response = Assets.count_per_datacollector(
-                organization_id,
+                organization_id = organization_id,
                 vendors = request.args.getlist('vendors[]'),
                 gateway_ids = request.args.getlist('gateway_ids[]'),
                 data_collector_ids = request.args.getlist('data_collector_ids[]'),
@@ -185,7 +185,7 @@ class AssetsPerTagCountAPI(Resource):
             organization_id = user.organization_id
 
             response = Assets.count_per_tag(
-                organization_id,
+                organization_id = organization_id,
                 vendors = request.args.getlist('vendors[]'),
                 gateway_ids = request.args.getlist('gateway_ids[]'),
                 data_collector_ids = request.args.getlist('data_collector_ids[]'),
