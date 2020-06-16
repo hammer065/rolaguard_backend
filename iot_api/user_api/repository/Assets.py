@@ -1,4 +1,3 @@
-import json
 from flask import request, abort, jsonify
 from flask_jwt_extended import get_jwt_identity
 from flask_restful import Resource
