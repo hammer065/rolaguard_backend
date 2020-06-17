@@ -53,7 +53,7 @@ class AssetsListAPI(Resource):
                 'application' : None,
                 'tags' : []
             } for dev in results.items]
-            headers = {'total-pages': results.pages, 'total-items': results.total}
+            headers = {'total_pages': results.pages, 'total_items': results.total}
             return {"devices": devices}, 200, headers
         except Exception as e:
             LOG.error(f"Error: {e}")
