@@ -54,7 +54,7 @@ class AssetsListAPI(Resource):
                 'tags' : []
             } for dev in results.items]
             response = {
-                'devices' : devices,
+                'assets' : devices,
                 'total_pages': results.pages,
                 'total_items': results.total
             }
