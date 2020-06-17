@@ -82,7 +82,7 @@ def list_all(organization_id, page=None, size=None,
     query = query.order_by(text('type desc'))
     query = query.alias('device_gateway')
     if page and size:
-        return db.session.query(query).paginate(page=page, per_page=size)
+        return db.session.query(query).paginate(page=page, per_page=size, error_out=False)
     else:
         return db.session.query(query)
 
