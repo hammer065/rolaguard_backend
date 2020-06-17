@@ -50,7 +50,7 @@ class AssetsListAPI(Resource):
                 'name' : dev.name,
                 'data_collector' : dev.data_collector,
                 'vendor' : dev.vendor,
-                'application' : None,
+                'app_name' : dev.app_name,
                 'tags' : []
             } for dev in results.items]
             response = {

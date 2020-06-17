@@ -38,6 +38,7 @@ def list_all(organization_id, page=None, size=None,
         Device.dev_eui.label('id'),
         expression.literal_column('\'Device\'').label('type'),
         Device.name,
+        Device.app_name,
         DataCollector.name.label('data_collector'),
         Device.vendor
         ]).\
@@ -49,6 +50,7 @@ def list_all(organization_id, page=None, size=None,
         Gateway.gw_hex_id.label('id'),
         expression.literal_column('\'Gateway\'').label('type'),
         Gateway.name,
+        expression.null().label('app_name'),
         DataCollector.name.label('data_collector'),
         Gateway.vendor
         ]).\
