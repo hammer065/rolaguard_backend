@@ -51,6 +51,7 @@ class AssetsListAPI(Resource):
                 'data_collector' : dev.data_collector,
                 'vendor' : dev.vendor,
                 'app_name' : dev.app_name,
+                'join_eui' : dev.join_eui,
                 'tags' : []
             } for dev in results.items]
             response = {
