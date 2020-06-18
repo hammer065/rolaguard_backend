@@ -52,6 +52,8 @@ class AssetsListAPI(Resource):
                 'vendor' : dev.vendor,
                 'app_name' : dev.app_name,
                 'join_eui' : dev.join_eui,
+                'location' : {'latitude' : dev.location_latitude,
+                              'longitude': dev.location_longitude},
                 'tags' : []
             } for dev in results.items]
             response = {
