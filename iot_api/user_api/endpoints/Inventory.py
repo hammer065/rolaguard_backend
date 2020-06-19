@@ -50,7 +50,10 @@ class AssetsListAPI(Resource):
                 'name' : dev.name,
                 'data_collector' : dev.data_collector,
                 'vendor' : dev.vendor,
-                'application' : None,
+                'app_name' : dev.app_name,
+                'join_eui' : dev.join_eui,
+                'location' : {'latitude' : dev.location_latitude,
+                              'longitude': dev.location_longitude},
                 'tags' : []
             } for dev in results.items]
             response = {

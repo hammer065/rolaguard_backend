@@ -37,7 +37,11 @@ def list_all(organization_id, page=None, size=None,
     s1 = select([
         Device.dev_eui.label('id'),
         expression.literal_column('\'Device\'').label('type'),
+        Device.join_eui.label('join_eui'),
         Device.name,
+        expression.null().label('location_latitude'),
+        expression.null().label('location_longitude'),
+        Device.app_name,
         DataCollector.name.label('data_collector'),
         Device.vendor
         ]).\
@@ -48,7 +52,11 @@ def list_all(organization_id, page=None, size=None,
     s2 = select([
         Gateway.gw_hex_id.label('id'),
         expression.literal_column('\'Gateway\'').label('type'),
+        expression.null().label('join_eui'),
         Gateway.name,
+        Gateway.location_latitude,
+        Gateway.location_longitude,
+        expression.null().label('app_name'),
         DataCollector.name.label('data_collector'),
         Gateway.vendor
         ]).\
