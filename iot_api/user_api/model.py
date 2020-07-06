@@ -1,6 +1,6 @@
 from iot_api import bcrypt
 from iot_api.user_api.enums import RoleTypes
-from iot_api.user_api.models.data_collector import *
+from iot_api.user_api.models.DataCollector import *
 from iot_api import config
 
 from sqlalchemy import Table, Column, ForeignKey, func, desc, asc, cast, case, \

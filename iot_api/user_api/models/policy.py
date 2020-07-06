@@ -4,7 +4,7 @@ from iot_api.user_api import db
 from sqlalchemy.orm import relationship, contains_eager, noload
 from iot_api import config
 
-from iot_api.user_api.models.data_collector import DataCollector
+from iot_api.user_api.models.DataCollector import DataCollector
 
 
 class Policy(db.Model):

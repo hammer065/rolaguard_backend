@@ -2,7 +2,7 @@ from sqlalchemy import Column, BigInteger, Boolean, DateTime, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql.schema import ForeignKey
 from iot_api.user_api import db
-from iot_api.user_api.model import DataCollector,DataCollectorStatus
+from iot_api.user_api.models import DataCollector,DataCollectorStatus
 
 class NotificationDataCollectorSettings(db.Model):
     enabled = Column(Boolean, nullable=False, default=True)

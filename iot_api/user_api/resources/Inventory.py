@@ -3,11 +3,11 @@ from flask_restful import Resource
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 import iot_logging
-LOG = iot_logging.getLogger(__name__)
+log = iot_logging.getLogger(__name__)
 
 from iot_api.user_api.model import User
 from iot_api.user_api.Utils import is_system
-from iot_api.user_api.repository import InventoryAssets
+from iot_api.user_api.repository import AssetRepository
 
 
 class AssetsListAPI(Resource):
@@ -34,7 +34,7 @@ class AssetsListAPI(Resource):
             page = request.args.get('page', default=1, type=int)
             size = request.args.get('size', default=20, type=int)
             
-            results = InventoryAssets.list_all(
+            results = AssetRepository.list_all(
                 organization_id=organization_id,
                 page=page, size=size,
                 vendors=request.args.getlist('vendors[]'),
@@ -63,7 +63,7 @@ class AssetsListAPI(Resource):
             }
             return response, 200
         except Exception as e:
-            LOG.error(f"Error: {e}")
+            log.error(f"Error: {e}")
             return {"message" : "There was an error trying to list assets"}, 400
 
 
@@ -87,7 +87,7 @@ class AssetsPerVendorCountAPI(Resource):
                 return abort(403, error='forbidden access')
             organization_id = user.organization_id
 
-            response = InventoryAssets.count_per_vendor(
+            response = AssetRepository.count_per_vendor(
                 organization_id = organization_id,
                 vendors = request.args.getlist('vendors[]'),
                 gateway_ids = request.args.getlist('gateway_ids[]'),
@@ -98,7 +98,7 @@ class AssetsPerVendorCountAPI(Resource):
 
             return response, 200
         except Exception as e:
-            LOG.error(f"Error: {e}")
+            log.error(f"Error: {e}")
             return {"message" : "There was an error trying to count assets"}, 400
 
 class AssetsPerGatewayCountAPI(Resource):
@@ -121,7 +121,7 @@ class AssetsPerGatewayCountAPI(Resource):
                 return abort(403, error='forbidden access')
             organization_id = user.organization_id
 
-            response = InventoryAssets.count_per_gateway(
+            response = AssetRepository.count_per_gateway(
                 organization_id = organization_id,
                 vendors = request.args.getlist('vendors[]'),
                 gateway_ids = request.args.getlist('gateway_ids[]'),
@@ -132,7 +132,7 @@ class AssetsPerGatewayCountAPI(Resource):
 
             return response, 200
         except Exception as e:
-            LOG.error(f"Error: {e}")
+            log.error(f"Error: {e}")
             return {"message" : "There was an error trying to count assets"}, 400
             
 
@@ -156,7 +156,7 @@ class AssetsPerDatacollectorCountAPI(Resource):
                 return abort(403, error='forbidden access')
             organization_id = user.organization_id
 
-            response = InventoryAssets.count_per_datacollector(
+            response = AssetRepository.count_per_datacollector(
                 organization_id = organization_id,
                 vendors = request.args.getlist('vendors[]'),
                 gateway_ids = request.args.getlist('gateway_ids[]'),
@@ -167,7 +167,7 @@ class AssetsPerDatacollectorCountAPI(Resource):
 
             return response, 200
         except Exception as e:
-            LOG.error(f"Error: {e}")
+            log.error(f"Error: {e}")
             return {"message" : "There was an error trying to count assets"}, 400
 
 
@@ -191,7 +191,7 @@ class AssetsPerTagCountAPI(Resource):
                 return abort(403, error='forbidden access')
             organization_id = user.organization_id
 
-            response = InventoryAssets.count_per_tag(
+            response = AssetRepository.count_per_tag(
                 organization_id = organization_id,
                 vendors = request.args.getlist('vendors[]'),
                 gateway_ids = request.args.getlist('gateway_ids[]'),
@@ -202,6 +202,6 @@ class AssetsPerTagCountAPI(Resource):
             return response, 200
 
         except Exception as e:
-            LOG.error(f"Error: {e}")
+            log.error(f"Error: {e}")
             return {"message" : "There was an error trying to count assets"}, 400
 

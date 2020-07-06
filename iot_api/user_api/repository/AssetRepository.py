@@ -1,8 +1,3 @@
-from flask import request, abort, jsonify
-from flask_jwt_extended import get_jwt_identity
-from flask_restful import Resource
-from flask_jwt_extended import jwt_required, get_jwt_identity
-
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
