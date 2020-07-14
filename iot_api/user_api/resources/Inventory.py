@@ -25,46 +25,42 @@ class AssetsListAPI(Resource):
     """
     @jwt_required
     def get(self):
-        try:
-            user = User.find_by_username(get_jwt_identity())
-            if not user or is_system(user.id):
-                return abort(403, error='forbidden access')
+        user = User.find_by_username(get_jwt_identity())
+        if not user or is_system(user.id):
+            return abort(403, error='forbidden access')
 
-            organization_id = user.organization_id
-            page = request.args.get('page', default=1, type=int)
-            size = request.args.get('size', default=20, type=int)
-            
-            results = AssetRepository.list_all(
-                organization_id=organization_id,
-                page=page, size=size,
-                vendors=request.args.getlist('vendors[]'),
-                gateway_ids=request.args.getlist('gateway_ids[]'),
-                data_collector_ids=request.args.getlist('data_collector_ids[]'),
-                tag_ids=request.args.getlist('data_collector_ids[]'),
-                asset_type=request.args.get('asset_type', type=str)
-            )
+        organization_id = user.organization_id
+        page = request.args.get('page', default=1, type=int)
+        size = request.args.get('size', default=20, type=int)
+        
+        results = AssetRepository.list_all(
+            organization_id=organization_id,
+            page=page, size=size,
+            vendors=request.args.getlist('vendors[]'),
+            gateway_ids=request.args.getlist('gateway_ids[]'),
+            data_collector_ids=request.args.getlist('data_collector_ids[]'),
+            tag_ids=request.args.getlist('data_collector_ids[]'),
+            asset_type=request.args.get('asset_type', type=str)
+        )
 
-            devices = [{
-                'id' : dev.id,
-                'type' : dev.type,
-                'name' : dev.name,
-                'data_collector' : dev.data_collector,
-                'vendor' : dev.vendor,
-                'app_name' : dev.app_name,
-                'join_eui' : dev.join_eui,
-                'location' : {'latitude' : dev.location_latitude,
-                              'longitude': dev.location_longitude},
-                'tags' : []
-            } for dev in results.items]
-            response = {
-                'assets' : devices,
-                'total_pages': results.pages,
-                'total_items': results.total
-            }
-            return response, 200
-        except Exception as e:
-            log.error(f"Error: {e}")
-            return {"message" : "There was an error trying to list assets"}, 400
+        devices = [{
+            'id' : dev.id,
+            'type' : dev.type,
+            'name' : dev.name,
+            'data_collector' : dev.data_collector,
+            'vendor' : dev.vendor,
+            'app_name' : dev.app_name,
+            'join_eui' : dev.join_eui,
+            'location' : {'latitude' : dev.location_latitude,
+                            'longitude': dev.location_longitude},
+            'tags' : []
+        } for dev in results.items]
+        response = {
+            'assets' : devices,
+            'total_pages': results.pages,
+            'total_items': results.total
+        }
+        return response, 200
 
 
 class AssetsPerVendorCountAPI(Resource):
@@ -80,26 +76,21 @@ class AssetsPerVendorCountAPI(Resource):
     """
     @jwt_required
     def get(self):
-        try:
-            user_identity = get_jwt_identity()
-            user = User.find_by_username(user_identity)
-            if not user or is_system(user.id):
-                return abort(403, error='forbidden access')
-            organization_id = user.organization_id
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+        if not user or is_system(user.id):
+            return abort(403, error='forbidden access')
+        organization_id = user.organization_id
 
-            response = AssetRepository.count_per_vendor(
-                organization_id = organization_id,
-                vendors = request.args.getlist('vendors[]'),
-                gateway_ids = request.args.getlist('gateway_ids[]'),
-                data_collector_ids = request.args.getlist('data_collector_ids[]'),
-                tag_ids = request.args.getlist('tag_ids[]'),
-                asset_type = request.args.get('asset_type', default=None, type=str)
-            )
-
-            return response, 200
-        except Exception as e:
-            log.error(f"Error: {e}")
-            return {"message" : "There was an error trying to count assets"}, 400
+        response = AssetRepository.count_per_vendor(
+            organization_id = organization_id,
+            vendors = request.args.getlist('vendors[]'),
+            gateway_ids = request.args.getlist('gateway_ids[]'),
+            data_collector_ids = request.args.getlist('data_collector_ids[]'),
+            tag_ids = request.args.getlist('tag_ids[]'),
+            asset_type = request.args.get('asset_type', default=None, type=str)
+        )
+        return response, 200
 
 class AssetsPerGatewayCountAPI(Resource):
     """ Endpoint to count assets (devices+gateways) grouped by gateway.
@@ -114,26 +105,21 @@ class AssetsPerGatewayCountAPI(Resource):
     """
     @jwt_required
     def get(self):
-        try:
-            user_identity = get_jwt_identity()
-            user = User.find_by_username(user_identity)
-            if not user or is_system(user.id):
-                return abort(403, error='forbidden access')
-            organization_id = user.organization_id
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+        if not user or is_system(user.id):
+            return abort(403, error='forbidden access')
+        organization_id = user.organization_id
 
-            response = AssetRepository.count_per_gateway(
-                organization_id = organization_id,
-                vendors = request.args.getlist('vendors[]'),
-                gateway_ids = request.args.getlist('gateway_ids[]'),
-                data_collector_ids = request.args.getlist('data_collector_ids[]'),
-                tag_ids = request.args.getlist('tag_ids[]'),
-                asset_type = request.args.get('asset_type', default=None, type=str)
-            )
-
-            return response, 200
-        except Exception as e:
-            log.error(f"Error: {e}")
-            return {"message" : "There was an error trying to count assets"}, 400
+        response = AssetRepository.count_per_gateway(
+            organization_id = organization_id,
+            vendors = request.args.getlist('vendors[]'),
+            gateway_ids = request.args.getlist('gateway_ids[]'),
+            data_collector_ids = request.args.getlist('data_collector_ids[]'),
+            tag_ids = request.args.getlist('tag_ids[]'),
+            asset_type = request.args.get('asset_type', default=None, type=str)
+        )
+        return response, 200
             
 
 class AssetsPerDatacollectorCountAPI(Resource):
@@ -149,26 +135,21 @@ class AssetsPerDatacollectorCountAPI(Resource):
     """
     @jwt_required
     def get(self):
-        try:
-            user_identity = get_jwt_identity()
-            user = User.find_by_username(user_identity)
-            if not user or is_system(user.id):
-                return abort(403, error='forbidden access')
-            organization_id = user.organization_id
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+        if not user or is_system(user.id):
+            return abort(403, error='forbidden access')
+        organization_id = user.organization_id
 
-            response = AssetRepository.count_per_datacollector(
-                organization_id = organization_id,
-                vendors = request.args.getlist('vendors[]'),
-                gateway_ids = request.args.getlist('gateway_ids[]'),
-                data_collector_ids = request.args.getlist('data_collector_ids[]'),
-                tag_ids = request.args.getlist('tag_ids[]'),
-                asset_type = request.args.get('asset_type', default=None, type=str)
-            )
-
-            return response, 200
-        except Exception as e:
-            log.error(f"Error: {e}")
-            return {"message" : "There was an error trying to count assets"}, 400
+        response = AssetRepository.count_per_datacollector(
+            organization_id = organization_id,
+            vendors = request.args.getlist('vendors[]'),
+            gateway_ids = request.args.getlist('gateway_ids[]'),
+            data_collector_ids = request.args.getlist('data_collector_ids[]'),
+            tag_ids = request.args.getlist('tag_ids[]'),
+            asset_type = request.args.get('asset_type', default=None, type=str)
+        )
+        return response, 200
 
 
 class AssetsPerTagCountAPI(Resource):
@@ -184,24 +165,18 @@ class AssetsPerTagCountAPI(Resource):
     """
     @jwt_required
     def get(self):
-        try:
-            user_identity = get_jwt_identity()
-            user = User.find_by_username(user_identity)
-            if not user or is_system(user.id):
-                return abort(403, error='forbidden access')
-            organization_id = user.organization_id
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+        if not user or is_system(user.id):
+            return abort(403, error='forbidden access')
+        organization_id = user.organization_id
 
-            response = AssetRepository.count_per_tag(
-                organization_id = organization_id,
-                vendors = request.args.getlist('vendors[]'),
-                gateway_ids = request.args.getlist('gateway_ids[]'),
-                data_collector_ids = request.args.getlist('data_collector_ids[]'),
-                tag_ids = request.args.getlist('tag_ids[]'),
-                asset_type = request.args.get('asset_type', default=None, type=str)
-            )
-            return response, 200
-
-        except Exception as e:
-            log.error(f"Error: {e}")
-            return {"message" : "There was an error trying to count assets"}, 400
-
+        response = AssetRepository.count_per_tag(
+            organization_id = organization_id,
+            vendors = request.args.getlist('vendors[]'),
+            gateway_ids = request.args.getlist('gateway_ids[]'),
+            data_collector_ids = request.args.getlist('data_collector_ids[]'),
+            tag_ids = request.args.getlist('tag_ids[]'),
+            asset_type = request.args.get('asset_type', default=None, type=str)
+        )
+        return response, 200

@@ -9,7 +9,7 @@ from iot_api.user_api.model import Device
 
 
 def is_from_organization(device_id, organization_id):
-    """ Return a boolean indicatinf if the device belongs to this organization. """
+    """ Return a boolean indicating if the device belongs to this organization. """
     return db.session.query(Device.query.filter(
         Device.id == device_id,
         Device.organization_id == organization_id

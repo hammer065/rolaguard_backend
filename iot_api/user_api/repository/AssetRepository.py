@@ -9,6 +9,7 @@ from iot_api.user_api.model import User
 from iot_api.user_api.Utils import is_admin_user, is_regular_user
 from iot_api.user_api.model import Device, Gateway, DataCollectorToDevice, GatewayToDevice
 from iot_api.user_api.models import DataCollector
+from iot_api.user_api import Error
 from collections import defaultdict
 
 
@@ -79,7 +80,7 @@ def list_all(organization_id, page=None, size=None,
         elif asset_type == "gateway":
             query = s2
         else:
-            raise Exception("Invalid device type parameter")
+            raise Error.BadRequest("Invalid device type parameter")
 
     # Execute the queries and join the results
     query = query.order_by(text('type desc'))
@@ -135,6 +136,8 @@ def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
         all_queries = s2.all()
     elif asset_type is None:
         all_queries = s1.all() + s2.all()
+    else:
+        raise Error.BadRequest("Invalid device type parameter")
 
     counts = defaultdict(lambda: {'name' : None, 'count' : 0})
     for e in all_queries:
@@ -182,6 +185,8 @@ def count_per_gateway(organization_id, vendors=None, gateway_ids=None,
             counts[e[0]]['count']-= 1 # Subtract one because the gateway has not to be taken into account
         elif asset_type=="gateway":
             counts[e[0]]['count'] = 1 # If only want to count gateways, the response is always one per gateway_id
+        else:
+            raise Error.BadRequest("Invalid device type parameter")
     return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
 
 
@@ -236,6 +241,8 @@ def count_per_datacollector(organization_id, vendors=None, gateway_ids=None,
         all_queries = gw_per_dc
     elif asset_type is None:
         all_queries = dev_per_dc + gw_per_dc
+    else:
+        raise Error.BadRequest("Invalid device type parameter")
 
     # Join the results of the queries
     counts = defaultdict(lambda: {'name' : None, 'count' : 0})
