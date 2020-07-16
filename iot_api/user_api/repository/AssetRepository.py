@@ -74,13 +74,14 @@ def list_all(organization_id, page=None, size=None,
 
     # Filter by device type if the parameter was given, else, make a union with queries.
     query = s1.union(s2)
-    if asset_type:
-        if asset_type == "device":
-            query = s1
-        elif asset_type == "gateway":
-            query = s2
-        else:
-            raise Error.BadRequest("Invalid device type parameter")
+    if asset_type == "device":
+        query = s1
+    elif asset_type == "gateway":
+        query = s2
+    elif asset_type is None:
+        pass
+    else:
+        raise Error.BadRequest("Invalid device type parameter")
 
     # Execute the queries and join the results
     query = query.order_by(text('type desc'))
@@ -185,6 +186,8 @@ def count_per_gateway(organization_id, vendors=None, gateway_ids=None,
             counts[e[0]]['count']-= 1 # Subtract one because the gateway has not to be taken into account
         elif asset_type=="gateway":
             counts[e[0]]['count'] = 1 # If only want to count gateways, the response is always one per gateway_id
+        elif asset_type is None:
+            pass
         else:
             raise Error.BadRequest("Invalid device type parameter")
     return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
