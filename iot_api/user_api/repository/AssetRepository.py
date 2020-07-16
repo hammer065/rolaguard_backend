@@ -107,12 +107,12 @@ def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
         of assets.
     """
     # Build two queries, one for devices and one for gateways
-    s1 = db.session.query(Device.vendor, func.count(Device.id)).\
+    s1 = db.session.query(Device.vendor, func.count(distinct(Device.id))).\
         join(DataCollectorToDevice).\
         group_by(Device.vendor).\
         filter(Device.organization_id==organization_id)
 
-    s2 = db.session.query(Gateway.vendor, func.count(Gateway.id)).\
+    s2 = db.session.query(Gateway.vendor, func.count(distinct(Gateway.id))).\
         group_by(Gateway.vendor).\
         filter(Gateway.organization_id==organization_id)
 
