@@ -26,4 +26,4 @@ eventlet
 flask_socketio
 kombu
 Shapely
-py3DNS
+dnspython<2
