@@ -17,12 +17,12 @@ from urllib.parse import quote_plus
 from iot_api import bcrypt, mail, app
 from iot_api.user_api.model import User
 #from iot_api.user_api.enums import WebUrl
-from iot_api.user_api.models.notification_preferences import NotificationPreferences
-from iot_api.user_api.models.notification_alert_settings import NotificationAlertSettings
-from iot_api.user_api.models.notification_data_collector_settings import NotificationDataCollectorSettings
-from iot_api.user_api.models.notification_additional_email import NotificationAdditionalEmail
-from iot_api.user_api.models.notification_additional_telephone_number import NotificationAdditionalTelephoneNumber
-from iot_api.user_api.models.data_collector import DataCollector
+from iot_api.user_api.models.NotificationPreferences import NotificationPreferences
+from iot_api.user_api.models.NotificationAlertSettings import NotificationAlertSettings
+from iot_api.user_api.models.NotificationDataCollectorSettings import NotificationDataCollectorSettings
+from iot_api.user_api.models.NotificationAdditionalEmail import NotificationAdditionalEmail
+from iot_api.user_api.models.NotificationAdditionalTelephoneNumber import NotificationAdditionalTelephoneNumber
+from iot_api.user_api.models.DataCollector import DataCollector
 
 from iot_api.user_api.schemas.notification_preferences_schema import NotificationPreferencesSchema
 

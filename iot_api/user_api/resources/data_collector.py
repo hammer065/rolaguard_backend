@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from iot_api.user_api.model import Packet, User
 
-from iot_api.user_api.endpoints import is_admin_user, is_regular_user
+from iot_api.user_api.Utils import is_admin_user, is_regular_user
 
 class DataCollectorActivityResource(Resource):
     

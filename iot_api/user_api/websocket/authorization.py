@@ -5,7 +5,7 @@ from flask_jwt_extended import decode_token
 from iot_api import socketio
 
 from iot_api.user_api.model import User
-from iot_api.user_api.models.notification_data import NotificationData
+from iot_api.user_api.models.NotificationData import NotificationData
 
 
 @socketio.on('authorization')

@@ -12,14 +12,14 @@ from flask_mail import Message
 from iot_api import app
 from iot_api import mail
 from iot_api import rabbit_parameters
-from iot_api.user_api.models.notification import Notification
 from iot_api.user_api.model import User, Alert, AlertType
-from iot_api.user_api.models.notification_data import NotificationData
-from iot_api.user_api.models.notification_preferences import NotificationPreferences
-from iot_api.user_api.models.notification_data_collector_settings import NotificationDataCollectorSettings
-from iot_api.user_api.models.notification_alert_settings import NotificationAlertSettings
-from iot_api.user_api.models.notification_additional_email import NotificationAdditionalEmail
-from iot_api.user_api.models.notification_additional_telephone_number import NotificationAdditionalTelephoneNumber
+from iot_api.user_api.models import Notification
+from iot_api.user_api.models.NotificationData import NotificationData
+from iot_api.user_api.models.NotificationPreferences import NotificationPreferences
+from iot_api.user_api.models.NotificationDataCollectorSettings import NotificationDataCollectorSettings
+from iot_api.user_api.models.NotificationAlertSettings import NotificationAlertSettings
+from iot_api.user_api.models.NotificationAdditionalEmail import NotificationAdditionalEmail
+from iot_api.user_api.models.NotificationAdditionalTelephoneNumber import NotificationAdditionalTelephoneNumber
 #from iot_api.user_api.enums import WebUrl
 from iot_api.user_api.singletonURL import singletonURL
 

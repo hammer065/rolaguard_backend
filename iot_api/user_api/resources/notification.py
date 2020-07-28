@@ -7,9 +7,9 @@ from datetime import datetime
 import json
 
 from iot_api.user_api.model import User
-from iot_api.user_api.models.notification import Notification
-from iot_api.user_api.models.notification_type import NotificationType
-from iot_api.user_api.models.notification_data import NotificationData
+from iot_api.user_api.models.Notification import Notification
+from iot_api.user_api.models.NotificationType import NotificationType
+from iot_api.user_api.models.NotificationData import NotificationData
 
 class NotificationListResource(Resource):
 
