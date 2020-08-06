@@ -57,6 +57,9 @@ class NotificationPreferencesAPI(Resource):
         alert_settings = alert_settings.to_dict()
         dc_settings = [dc.to_dict() for dc in dc_settings]
 
+        if not asset_importance:
+            asset_importance = NotificationAssetImportance(user_id = user.id).save()
+
         response = {
             'destinations': preferences,
             'risks': alert_settings,

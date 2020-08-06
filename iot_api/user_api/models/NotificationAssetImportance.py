@@ -9,6 +9,11 @@ class NotificationAssetImportance(db.Model):
     medium = Column(Boolean, nullable=False, default=True)
     low = Column(Boolean, nullable=False, default=True)
 
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
+        return self
+
     @classmethod
     def get_with(cls, user_id):
         return cls.query.get(user_id)
