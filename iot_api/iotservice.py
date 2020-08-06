@@ -1,5 +1,3 @@
-# iotservice
-
 # -*- coding: utf-8 -*-
 """
     IoT API
@@ -18,7 +16,6 @@ from iot_api import mail, socketio
 from iot_api.user_api.resources.policy import PolicyResource, PolicyListResource
 from iot_api.user_api.resources.data_collector_log_event import DataCollectorLogEventListResource
 from iot_api.user_api.resources.data_collector import DataCollectorActivityResource
-from iot_api.user_api.resources.notification_preferences import NotificationPreferencesResource, NotificationEmailActivationResource, NotificationPhoneActivationResource
 from iot_api.user_api.resources.notification import NotificationListResource, NotificationCountResource, NotificationResource
 from iot_api.user_api.model import User, Organization, Gateway, Device, RevokedTokenModel, AccountActivation, \
     PasswordReset, LoginAttempts, UserRole, UserToUserRole, ChangeEmailRequests, Alert, Packet
@@ -119,9 +116,9 @@ api.add_resource(DataCollectorLogEventListResource, '/api/v1.0/data_collectors/<
 #endregion
 
 #region Notifications
-api.add_resource(NotificationPreferencesResource, '/api/v1.0/notifications/preferences')
-api.add_resource(NotificationEmailActivationResource, '/api/v1.0/notifications/email_activation/<path:token>')
-api.add_resource(NotificationPhoneActivationResource, '/api/v1.0/notifications/phone_activation/<path:token>')
+api.add_resource(res.NotificationPreferencesAPI, '/api/v1.0/notifications/preferences')
+api.add_resource(res.NotificationEmailActivationAPI, '/api/v1.0/notifications/email_activation/<path:token>')
+api.add_resource(res.NotificationPhoneActivationAPI, '/api/v1.0/notifications/phone_activation/<path:token>')
 api.add_resource(NotificationListResource, '/api/v1.0/notifications')
 api.add_resource(NotificationResource, '/api/v1.0/notifications/<int:id>')
 api.add_resource(NotificationCountResource, '/api/v1.0/notifications/count')
@@ -145,6 +142,9 @@ api.add_resource(res.AssetsPerGatewayCountAPI, '/api/v1.0/inventory/count/gatewa
 api.add_resource(res.AssetsPerDatacollectorCountAPI, '/api/v1.0/inventory/count/data_collector')
 api.add_resource(res.AssetsPerTagCountAPI, '/api/v1.0/inventory/count/tag')
 
+# Asset importance
+api.add_resource(res.AssetImportanceAPI, '/api/v1.0/inventory/set_importance')
+
 # Tags
 api.add_resource(res.TagListAPI, '/api/v1.0/tags')
 api.add_resource(res.TagAPI, '/api/v1.0/tags/<int:tag_id>')
@@ -153,6 +153,4 @@ api.add_resource(res.TagAssetsAPI, '/api/v1.0/tags/<int:tag_id>/assets')
 
 if __name__ == '__main__':
     socketio.run(app, port=5000)
-#    socketio.run(app)
     db.init_app(app)
-    # app.run(debug=app.config['DEBUG'])

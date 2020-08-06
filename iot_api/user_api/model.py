@@ -786,6 +786,11 @@ class Alert(db.Model):
             LOG.error(e)
 
 
+class AssetImportance(Enum):
+    LOW = 'LOW'
+    MEDIUM = 'MEDIUM'
+    HIGH = 'HIGH'
+
 class Gateway(db.Model):
     __tablename__ = 'gateway'
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -798,6 +803,7 @@ class Gateway(db.Model):
     organization_id = Column(BigInteger, db.ForeignKey("organization.id"), nullable=False)
     connected = Column(Boolean, nullable=False, default=True)
     last_activity = Column(DateTime(timezone=True), nullable=False) 
+    importance = Column(SQLEnum(AssetImportance))
     
 class Device(db.Model):
     __tablename__ = 'device'
@@ -808,6 +814,7 @@ class Device(db.Model):
     app_name = Column(String, nullable=True)
     join_eui = Column(String(16), nullable=True)
     organization_id = Column(BigInteger, ForeignKey("organization.id"), nullable=False)
+    importance = Column(SQLEnum(AssetImportance))
 
     repeated_dev_nonce = Column(Boolean, nullable=True)
     join_request_counter = Column(Integer, nullable=False, default=0)
