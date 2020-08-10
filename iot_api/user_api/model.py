@@ -576,6 +576,8 @@ class Alert(db.Model):
     resolved_by = relationship("User", lazy="joined")
     alert_type = relationship("AlertType", lazy="joined")
     data_collector = relationship("DataCollector", lazy="joined")
+    device = relationship("Device", lazy="joined")
+    gateway = relationship("Gateway", lazy="joined")
 
     def to_json(self):
         parsed_user = self.resolved_by.to_short_info_json() if self.resolved_by else None
@@ -594,7 +596,8 @@ class Alert(db.Model):
             'resolved_at': None if self.resolved_at is None else "{}".format(self.resolved_at),
             'resolution_comment': self.resolution_comment,
             'resolved_by_id': self.resolved_by_id,
-            'resolved_by': parsed_user
+            'resolved_by': parsed_user,
+            'asset_importance': self.get_asset_importance()
         }
 
     def to_count_json(self):
@@ -603,6 +606,15 @@ class Alert(db.Model):
             'type': self.type,
             'created_at': "{}".format(self.created_at)
         }
+
+    def get_asset_importance(self):
+        if self.device:
+            asset_importance = self.device.importance.value
+        elif self.gateway:
+            asset_importance = self.gateway.importance.value
+        else:
+            asset_importance = None
+        return asset_importance
 
     @classmethod
     def find_one(cls, id):
