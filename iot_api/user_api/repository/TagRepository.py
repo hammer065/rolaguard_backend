@@ -6,7 +6,7 @@ from sqlalchemy.sql import select, expression, text
 
 from iot_api.user_api import db
 from iot_api.user_api.models import Tag, DeviceToTag, GatewayToTag
-from iot_api.user_api.model import Device, Gateway
+from iot_api.user_api.model import Device, Gateway, User
 from iot_api.user_api.repository import DeviceRepository, GatewayRepository
 from iot_api.user_api import Error
 
@@ -63,6 +63,16 @@ def is_from_organization(tag_id, organization_id):
         Tag.id == tag_id,
         Tag.organization_id == organization_id
     ).exists()).scalar()
+
+def are_from_user_organization(tag_id_list, user_id):
+    """
+    Return a boolean indicating if every tag in tag_id_list belongs to the user's organization
+    """
+    return db.session.query(Tag).filter(
+        User.id == user_id,
+        Tag.organization_id == User.organization_id,
+        Tag.id.in_(tag_id_list)
+        ).count() == len(tag_id_list)
 
 def tag_asset(tag_id, asset_id, asset_type, organization_id):
     """

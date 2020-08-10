@@ -16,9 +16,9 @@ from iot_api.user_api.model import User, Alert, AlertType
 from iot_api.user_api.models import (
     Notification, NotificationData, NotificationPreferences, NotificationDataCollectorSettings,
     NotificationAlertSettings, NotificationAssetImportance, NotificationAdditionalEmail,
-    NotificationAdditionalTelephoneNumber
+    NotificationAdditionalTelephoneNumber, NotificationAssetTag
 )
-from iot_api.user_api.repository import AssetRepository
+from iot_api.user_api.repository import AssetRepository, DeviceRepository, GatewayRepository
 #from iot_api.user_api.enums import WebUrl
 from iot_api.user_api.singletonURL import singletonURL
 
@@ -93,7 +93,7 @@ def handle_alert_events(ch, method, properties, body):
             if alert and alert.gateway_id:
                 gateway = AssetRepository.get_with(alert.gateway_id, "gateway")
         except Exception as e:
-            LOG.error(f"Error {e} on alert assets search {alert}. Ignoring asset_importance preference")
+            LOG.error(f"Error {e} on alert assets search {alert}. Ignoring device/gateway related preferences")
             device = None
             gateway = None
 
@@ -114,7 +114,19 @@ def handle_alert_events(ch, method, properties, body):
                 LOG.error(f"Error {e} on NotificationAssetImportance search for user {user.id}. Ignoring asset_importance preference")
                 is_important_for_user = True
 
-            if alert_settings and getattr(alert_settings, alert_type.risk.lower()) and is_important_for_user and dc_settings and dc_settings.enabled:
+            # Check whether the alert assets contain all the tags in user notification preferences or not
+            try:
+                asset_tags = NotificationAssetTag.find_all_with(user_id = user.id)
+                tag_id_list = [asset_tag.tag_id for asset_tag in asset_tags]
+                if device:
+                    has_all_tags = DeviceRepository.has_all_tags(device.id, tag_id_list)
+                elif gateway:
+                    has_all_tags = GatewayRepository.has_all_tags(device.id, tag_id_list)
+            except Exception as e:
+                LOG.error(f"Error {e} on handling NotificationAssetTag preferences for user {user.id}. Ignoring this preference")
+                has_all_tags = True
+
+            if alert_settings and getattr(alert_settings, alert_type.risk.lower()) and is_important_for_user and has_all_tags and dc_settings and dc_settings.enabled:
                 data = NotificationData.find_one(user.id)
                 notification = Notification(type = 'NEW_ALERT', alert_id = alert_id, user_id=user.id, created_at = datetime.now())
                 notification.save()
