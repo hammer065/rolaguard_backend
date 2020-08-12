@@ -50,7 +50,7 @@ def consumer():
             LOG.debug('Creating new connection to queue alert_events')
             connection = pika.BlockingConnection(rabbit_parameters)
             channel = connection.channel()
-            channel.queue_declare(queue=queue, durable=True)
+            channel.queue_declare(queue=queue)
             channel.basic_consume(on_message_callback=handle_alert_events, queue=queue, auto_ack=True)
             channel.start_consuming()
         except Exception as e:
