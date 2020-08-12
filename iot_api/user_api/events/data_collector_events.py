@@ -37,7 +37,7 @@ def test_results_consumer():
             connection = pika.BlockingConnection(rabbit_parameters)
             channel = connection.channel()
             channel.exchange_declare(exchange=exchange, exchange_type='direct')
-            channel.queue_declare(queue=queue, durable=True)
+            channel.queue_declare(queue=queue)
             channel.basic_consume(on_message_callback=handle_test_events, queue=queue, auto_ack=True)
             channel.start_consuming()
         except Exception as e:
@@ -82,7 +82,7 @@ def consumer():
             connection = pika.BlockingConnection(rabbit_parameters)
             channel = connection.channel()
             channel.exchange_declare(exchange=exchange, exchange_type='direct')
-            channel.queue_declare(queue=queue, durable=True)
+            channel.queue_declare(queue=queue)
             channel.basic_consume(on_message_callback=handle_status_events, queue=queue, auto_ack=True)
             channel.start_consuming()
         except Exception as e:
@@ -208,7 +208,7 @@ def emit_data_collector_event(type, data):
 
     connection = pika.BlockingConnection(rabbit_parameters)
     channel = connection.channel()
-    channel.queue_declare(queue=queue, durable=False)
+    channel.queue_declare(queue=queue)
     channel.basic_publish(exchange='', routing_key=queue, body=body)
     LOG.debug('Published {type} event on {queue}'.format(type=type, queue=queue))
     # emit_data_collector_event_ws(UPDATED_DATA_COLLECTOR, data, data.get('organization_id'))
