@@ -46,11 +46,22 @@ bcrypt = Bcrypt(app)
 cipher_suite = Fernet(key)
 mail = Mail(app)
 
-rabbit_credentials = pika.PlainCredentials(config.FLASK_PIKA_PARAMS.get('username'), config.FLASK_PIKA_PARAMS.get('password'))
+rabbit_credentials = pika.PlainCredentials(
+    config.FLASK_PIKA_PARAMS['username'],
+    config.FLASK_PIKA_PARAMS['password'])
 
-rabbit_parameters = pika.ConnectionParameters(host=config.FLASK_PIKA_PARAMS.get('host'),port=config.FLASK_PIKA_PARAMS.get('port'), credentials=rabbit_credentials, heartbeat=30)
-print("rabbit parameters:")
-print(f'host: {rabbit_parameters._host}:{rabbit_parameters._port}')
-print()
+rabbit_parameters = pika.ConnectionParameters(
+    host=config.FLASK_PIKA_PARAMS['host'],
+    port=config.FLASK_PIKA_PARAMS['port'],
+    credentials=rabbit_credentials,
+    heartbeat=30
+    )
 
-socketio = SocketIO(app, message_queue='amqp://{user}:{password}@{host}:{port}'.format(user=config.FLASK_PIKA_PARAMS.get('username'), password=config.FLASK_PIKA_PARAMS.get('password'), host=config.FLASK_PIKA_PARAMS.get('host'), port=config.FLASK_PIKA_PARAMS.get('port')), cors_allowed_origins="*")
+socketio = SocketIO(
+    app,
+    message_queue='amqp://{user}:{password}@{host}:{port}'.format(
+        user=config.FLASK_PIKA_PARAMS.get('username'),
+        password=config.FLASK_PIKA_PARAMS.get('password'),
+        host=config.FLASK_PIKA_PARAMS.get('host'),
+        port=config.FLASK_PIKA_PARAMS.get('port')),
+    cors_allowed_origins="*")

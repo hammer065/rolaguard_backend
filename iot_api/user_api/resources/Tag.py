@@ -1,6 +1,7 @@
 from flask import request
-from flask_restful import Resource
+from flask_restful import Resource, reqparse
 from flask_jwt_extended import jwt_required, get_jwt_identity
+import json
 
 from iot_api.user_api.model import User
 from iot_api.user_api.Utils import is_system
@@ -103,36 +104,43 @@ class TagAssetsAPI(Resource):
     the URL, and the asset_id and asset_type are given as parameters in the
     request.
     """
+    parser = reqparse.RequestParser()
+    parser.add_argument('asset_list', required=True, action='append')
+
     @jwt_required
     def post(self, tag_id):
         user = User.find_by_username(get_jwt_identity())
         if not user or is_system(user.id):
-            raise Error.Forbidden("User not allowed")
+            return abort(403, error='forbidden access')
         organization_id = user.organization_id
 
-        asset_id = request.args.get('asset_id', type=int)
-        asset_type = request.args.get('asset_type', type=str)
-        TagRepository.tag_asset(
-            tag_id=tag_id,
-            asset_id=asset_id,
-            asset_type=asset_type,
-            organization_id=organization_id
-            )
-        return {"message": "Asset tagged"}, 200
+        asset_list = TagAssetsAPI.parser.parse_args()["asset_list"]
 
+        for asset in asset_list:
+            asset = json.loads(asset.replace("\'", "\""))
+            TagRepository.tag_asset(
+                tag_id=tag_id,
+                asset_id=int(asset["asset_id"]),
+                asset_type=asset["asset_type"],
+                organization_id=organization_id
+                )
+        return {"message": "Assets tagged"}, 200
+    
     @jwt_required
     def delete(self, tag_id):
         user = User.find_by_username(get_jwt_identity())
         if not user or is_system(user.id):
-            raise Error.Forbidden("User not allowed")
+            return abort(403, error='forbidden access')
         organization_id = user.organization_id
 
-        asset_id = request.args.get('asset_id', type=int)
-        asset_type = request.args.get('asset_type', type=str)
-        TagRepository.untag_asset(
-            tag_id=tag_id,
-            asset_id=asset_id,
-            asset_type=asset_type,
-            organization_id=organization_id
-        )
+        asset_list = TagAssetsAPI.parser.parse_args()["asset_list"]
+
+        for asset in asset_list:
+            asset = json.loads(asset.replace("\'", "\""))
+            TagRepository.untag_asset(
+                tag_id=tag_id,
+                asset_id=int(asset["asset_id"]),
+                asset_type=asset["asset_type"],
+                organization_id=organization_id
+            )
         return {"message": "Asset untagged"}, 200

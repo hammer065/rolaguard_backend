@@ -1,3 +1,5 @@
+# iotservice
+
 # -*- coding: utf-8 -*-
 """
     IoT API
@@ -16,10 +18,9 @@ from iot_api import mail, socketio
 from iot_api.user_api.resources.policy import PolicyResource, PolicyListResource
 from iot_api.user_api.resources.data_collector_log_event import DataCollectorLogEventListResource
 from iot_api.user_api.resources.data_collector import DataCollectorActivityResource
+from iot_api.user_api.resources.NotificationPreferences import NotificationPreferencesAPI, NotificationEmailActivationAPI, NotificationPhoneActivationAPI
 from iot_api.user_api.resources.notification import NotificationListResource, NotificationCountResource, NotificationResource
-from iot_api.user_api.model import User, Organization, Gateway, Device, RevokedTokenModel, AccountActivation, \
-    PasswordReset, LoginAttempts, UserRole, UserToUserRole, ChangeEmailRequests, Alert, Packet
-#from iot_api.user_api.enums import WebUrl
+from iot_api.user_api.model import RevokedTokenModel
 
 import simplejson as json
 from pprint import pprint
@@ -27,12 +28,6 @@ from psycopg2 import sql
 import psycopg2 as postgresql
 
 from datetime import datetime
-# import logging
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
-from shapely.geometry import Point
-from shapely.geometry.polygon import Polygon
 
 import iot_api.user_api.websocket
 import iot_api.user_api.events
@@ -116,9 +111,9 @@ api.add_resource(DataCollectorLogEventListResource, '/api/v1.0/data_collectors/<
 #endregion
 
 #region Notifications
-api.add_resource(res.NotificationPreferencesAPI, '/api/v1.0/notifications/preferences')
-api.add_resource(res.NotificationEmailActivationAPI, '/api/v1.0/notifications/email_activation/<path:token>')
-api.add_resource(res.NotificationPhoneActivationAPI, '/api/v1.0/notifications/phone_activation/<path:token>')
+api.add_resource(NotificationPreferencesAPI, '/api/v1.0/notifications/preferences')
+api.add_resource(NotificationEmailActivationAPI, '/api/v1.0/notifications/email_activation/<path:token>')
+api.add_resource(NotificationPhoneActivationAPI, '/api/v1.0/notifications/phone_activation/<path:token>')
 api.add_resource(NotificationListResource, '/api/v1.0/notifications')
 api.add_resource(NotificationResource, '/api/v1.0/notifications/<int:id>')
 api.add_resource(NotificationCountResource, '/api/v1.0/notifications/count')
@@ -141,9 +136,6 @@ api.add_resource(res.AssetsPerVendorCountAPI, '/api/v1.0/inventory/count/vendor'
 api.add_resource(res.AssetsPerGatewayCountAPI, '/api/v1.0/inventory/count/gateway')
 api.add_resource(res.AssetsPerDatacollectorCountAPI, '/api/v1.0/inventory/count/data_collector')
 api.add_resource(res.AssetsPerTagCountAPI, '/api/v1.0/inventory/count/tag')
-
-# Asset importance
-api.add_resource(res.AssetImportanceAPI, '/api/v1.0/inventory/set_importance')
 
 # Tags
 api.add_resource(res.TagListAPI, '/api/v1.0/tags')

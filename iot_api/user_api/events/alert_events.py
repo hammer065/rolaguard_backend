@@ -42,25 +42,19 @@ def subscribe_alert_consumers():
     thread = Thread(target = consumer)
     thread.setDaemon(True)
     thread.start()
-    print('Subscribed to alert events')
 
 def consumer():
-    connection = None
+    queue="alert_events"
     while(True):
         try:
-            queue = 'alert_events'
-            if not(connection and connection.is_open):
-                LOG.debug('Creating new connection')
-                connection = pika.BlockingConnection(rabbit_parameters)
+            LOG.debug('Creating new connection to queue alert_events')
             connection = pika.BlockingConnection(rabbit_parameters)
             channel = connection.channel()
-            channel.queue_declare(queue=queue)
+            channel.queue_declare(queue=queue, durable=True)
             channel.basic_consume(on_message_callback=handle_alert_events, queue=queue, auto_ack=True)
-            LOG.debug(f"consuming events from queue [{queue}]")
             channel.start_consuming()
         except Exception as e:
-            LOG.error(f"Error {e} on connection to queue {queue}. Reconnecting")
-            continue
+            LOG.error(f"Error on connection to queue alert_events:\n{e}")
 
 def handle_alert_events(ch, method, properties, body):
     event = None

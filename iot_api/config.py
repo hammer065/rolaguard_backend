@@ -12,22 +12,16 @@ try:
 except:
     SEND_EMAILS = False
 
-log.info("SEND_EMAILS: {0}".format(SEND_EMAILS))
-
 try:
     ASSIGN_COLLECTOR_TO_USER_ENABLED = True if os.environ['ASSIGN_COLLECTOR_TO_USER_ENABLED'] == "True" else False
 except:
     ASSIGN_COLLECTOR_TO_USER_ENABLED = False
-
-log.info("ASSIGN_COLLECTOR_TO_USER_ENABLED is {0}".format(ASSIGN_COLLECTOR_TO_USER_ENABLED))
 
 try:
     SEND_SMS = True if os.environ['SEND_SMS'] == "True" else False
 except:
     SEND_SMS = False
 
-log.info("SEND_SMS: {0}".format(SEND_SMS))
-    
 # SMTP service
 if SEND_EMAILS:
     try:
