@@ -1,11 +1,30 @@
-from iot_api.user_api.resources.endpoints import *
-from iot_api.user_api.resources.Inventory import (AssetsListAPI,
-    AssetsPerVendorCountAPI, AssetsPerGatewayCountAPI,
-    AssetsPerDatacollectorCountAPI, AssetsPerTagCountAPI)
-from iot_api.user_api.resources.Tag import (TagAPI, TagListAPI, TagAssetsAPI)
-from iot_api.user_api.resources.NotificationPreferences import (
+from .endpoints import *
+from .Inventory import (
+    AssetsListAPI,
+    AssetsPerVendorCountAPI,
+    AssetsPerGatewayCountAPI,
+    AssetsPerDatacollectorCountAPI,
+    AssetsPerTagCountAPI
+    )
+from .Tag import (
+    TagAPI,
+    TagListAPI,
+    TagAssetsAPI
+    )
+from .notification import (
+    NotificationListResource,
+    NotificationResource,
+    NotificationCountResource
+    )
+from .NotificationPreferences import (
     NotificationPreferencesAPI, 
     NotificationEmailActivationAPI,
     NotificationPhoneActivationAPI
     )
-from iot_api.user_api.resources.AssetImportance import AssetImportanceAPI
+from .AssetImportance import AssetImportanceAPI
+from .data_collector import DataCollectorActivityResource
+from .data_collector_log_event import DataCollectorLogEventListResource
+from .policy import (
+    PolicyListResource,
+    PolicyResource
+)
