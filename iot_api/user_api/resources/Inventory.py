@@ -1,3 +1,4 @@
+import calendar
 from flask import request, abort
 from flask_restful import Resource
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -8,6 +9,7 @@ log = iot_logging.getLogger(__name__)
 from iot_api.user_api.model import User
 from iot_api.user_api.Utils import is_system
 from iot_api.user_api.repository import AssetRepository, TagRepository
+
 
 
 class AssetsListAPI(Resource):
@@ -53,6 +55,8 @@ class AssetsListAPI(Resource):
             'app_name' : dev.app_name,
             'join_eui' : dev.join_eui,
             'importance' : dev.importance.value,
+            'connected' : dev.connected,
+            'last_activity' : calendar.timegm(dev.last_activity.timetuple()),
             'location' : {'latitude' : dev.location_latitude,
                           'longitude': dev.location_longitude},
             'tags' : [{"id" : tag.id,

@@ -57,7 +57,9 @@ def list_all(organization_id, page=None, size=None,
         Device.app_name,
         DataCollector.name.label('data_collector'),
         Device.vendor,
-        Device.importance
+        Device.importance,
+        Device.connected,
+        Device.last_activity
         ).select_from(Device).\
             join(DataCollectorToDevice).join(DataCollector).\
             join(GatewayToDevice).\
@@ -73,7 +75,9 @@ def list_all(organization_id, page=None, size=None,
         expression.null().label('app_name'),
         DataCollector.name.label('data_collector'),
         Gateway.vendor,
-        Gateway.importance
+        Gateway.importance,
+        Device.connected,
+        Device.last_activity
         ).select_from(Gateway).\
             join(DataCollector).\
             filter(Gateway.organization_id == organization_id)
