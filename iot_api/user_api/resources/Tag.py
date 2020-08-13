@@ -7,6 +7,7 @@ from iot_api.user_api.model import User
 from iot_api.user_api.Utils import is_system
 from iot_api.user_api.repository import TagRepository
 from iot_api.user_api import Error
+from iot_api.user_api import db
 
 
 class TagListAPI(Resource):
@@ -122,8 +123,10 @@ class TagAssetsAPI(Resource):
                 tag_id=tag_id,
                 asset_id=int(asset["asset_id"]),
                 asset_type=asset["asset_type"],
-                organization_id=organization_id
+                organization_id=organization_id,
+                commit=False
                 )
+        db.session.commit()
         return {"message": "Assets tagged"}, 200
     
     @jwt_required
@@ -141,6 +144,8 @@ class TagAssetsAPI(Resource):
                 tag_id=tag_id,
                 asset_id=int(asset["asset_id"]),
                 asset_type=asset["asset_type"],
-                organization_id=organization_id
+                organization_id=organization_id,
+                commit=False
             )
+        db.session.commit()
         return {"message": "Asset untagged"}, 200

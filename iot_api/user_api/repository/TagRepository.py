@@ -76,7 +76,7 @@ def is_tagged(tag_id, asset_id, asset_type):
             filter(GatewayToTag.tag_id == tag_id).\
             filter(GatewayToTag.gateway_id == asset_id).exists()).scalar()
     else:
-        raise Exception(f"Invalid asset_type: {asset_type}")
+        raise Error.BadRequest(f"Invalid asset_type: {asset_type}")
 
 def are_from_user_organization(tag_id_list, user_id):
     """
@@ -89,29 +89,30 @@ def are_from_user_organization(tag_id_list, user_id):
         ).count() == len(tag_id_list)
 
 
-def tag_asset(tag_id, asset_id, asset_type, organization_id):
+def tag_asset(tag_id, asset_id, asset_type, organization_id, commit=True):
     """
     Tag the asset with the given asset_type ("device" or "gateway") and asset_id
     (device_id or gateway_id) with the tag with tag_id and organization_id.
     """
     if not is_from_organization(tag_id, organization_id):
         raise Error.Forbidden("Trying to use a tag from other organization.")
+    if is_tagged(tag_id, asset_id, asset_type): return
 
     if asset_type=="device":
         if not DeviceRepository.is_from_organization(asset_id, organization_id):
-            raise Exception("Trying to tag a device from other organization")
+            raise Error.Forbidden("Trying to tag a device from other organization")
         asset_tag = DeviceToTag(tag_id=tag_id, device_id=asset_id)
         db.session.add(asset_tag)
     elif asset_type=="gateway":
         if not GatewayRepository.is_from_organization(asset_id, organization_id):
-            raise Exception("Trying to tag a gateway from other organization")
+            raise Error.Forbidden("Trying to tag a gateway from other organization")
         asset_tag = GatewayToTag(tag_id=tag_id, gateway_id=asset_id)
         db.session.add(asset_tag)
     else:
         raise Error.BadRequest(f"Invalid asset_type: {asset_type}")
-    db.session.commit()
+    if commit: db.session.commit()
 
-def untag_asset(tag_id, asset_id, asset_type, organization_id):
+def untag_asset(tag_id, asset_id, asset_type, organization_id, commit=True):
     """
     Remove the tag with the tag_id and organization_id from the asset with the
     given asset_type ("device" or "gateway") and asset_id (device_id or
@@ -120,37 +121,34 @@ def untag_asset(tag_id, asset_id, asset_type, organization_id):
     if not is_from_organization(tag_id, organization_id):
         raise Error.Forbidden("Trying to delete a tag from other organization.")
 
-
     if asset_type=="device":
         if not DeviceRepository.is_from_organization(asset_id, organization_id):
-            raise Exception("Trying to untag a device from other organization")
+            raise Error.Forbidden("Trying to untag a device from other organization")
         asset_tag = db.session.query(DeviceToTag).\
-            join(Tag).\
-            filter(Tag.id==tag_id, Device.id==asset_id).first()
-        db.session.delete(asset_tag)
+            filter(DeviceToTag.tag_id==tag_id, DeviceToTag.device_id==asset_id).first()
+        if asset_tag: db.session.delete(asset_tag)
     elif asset_type=="gateway":
         if not GatewayRepository.is_from_organization(asset_id, organization_id):
-            raise Exception("Trying to untag a gateway from other organization")
+            raise Error.Forbidden("Trying to untag a gateway from other organization")
         asset_tag = db.session.query(GatewayToTag).\
-            join(Tag).\
-            filter(Tag.id==tag_id, Gateway.id==asset_id).first()
-        db.session.delete(asset_tag)
+            filter(GatewayToTag.tag_id==tag_id, GatewayToTag.gateway_id==asset_id).first()
+        if asset_tag: db.session.delete(asset_tag)
     else:
         raise Error.BadRequest(f"Invalid asset_type: {asset_type}")
-    db.session.commit()
+    if commit: db.session.commit()
 
 def list_asset_tags(asset_id, asset_type, organization_id):
     if asset_type=="device":
         if not DeviceRepository.is_from_organization(asset_id, organization_id):
-            raise Exception("Trying to list tags from a device from other organization")
+            raise Error.Forbidden("Trying to list tags from a device from other organization")
         return db.session.query(Tag).\
             join(DeviceToTag).\
             filter(DeviceToTag.device_id == asset_id).all()
     elif asset_type=="gateway":
         if not GatewayRepository.is_from_organization(asset_id, organization_id):
-            raise Exception("Trying to list tags from a gateway from other organization")
+            raise Error.Forbidden("Trying to list tags from a gateway from other organization")
         return db.session.query(Tag).\
             join(GatewayToTag).\
             filter(GatewayToTag.gateway_id == asset_id).all()
     else:
-        raise Exception(f"Invalid asset_type: {asset_type}")
+        raise Error.BadRequest(f"Invalid asset_type: {asset_type}")
