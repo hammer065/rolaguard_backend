@@ -1,7 +1,7 @@
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
-from sqlalchemy import func, or_, distinct, cast, Numeric
+from sqlalchemy import func, or_, distinct, cast, Float
 from sqlalchemy.sql import select, expression, text
 
 from iot_api.user_api import db
@@ -52,8 +52,8 @@ def list_all(organization_id, page=None, size=None,
         expression.literal_column('\'Device\'').label('type'),
         Device.join_eui.label('join_eui'),
         Device.name,
-        cast(expression.null(), Numeric).label('location_latitude'),
-        cast(expression.null(), Numeric).label('location_longitude'),
+        cast(expression.null(), Float).label('location_latitude'),
+        cast(expression.null(), Float).label('location_longitude'),
         Device.app_name,
         DataCollector.name.label('data_collector'),
         Device.vendor,
