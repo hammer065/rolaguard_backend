@@ -814,7 +814,10 @@ class Gateway(db.Model):
     data_collector_id = Column(BigInteger, db.ForeignKey("data_collector.id"), nullable=False)
     organization_id = Column(BigInteger, db.ForeignKey("organization.id"), nullable=False)
     connected = Column(Boolean, nullable=False, default=True)
-    last_activity = Column(DateTime(timezone=True), nullable=False) 
+    last_activity = Column(DateTime(timezone=True), nullable=False)
+    activity_freq = Column(Float, nullable=True)
+    npackets_up = Column(BigInteger, nullable=False, default=0)
+    npackets_down = Column(BigInteger, nullable=False, default=0)
     importance = Column(SQLEnum(AssetImportance))
     
 class Device(db.Model):
@@ -841,6 +844,11 @@ class Device(db.Model):
     connected = Column(Boolean, nullable=False, default=True)
     last_activity = Column(DateTime(timezone=True), nullable=True)
     activity_freq = Column(Float, nullable=True)
+    npackets_up = Column(BigInteger, nullable=False, default=0)
+    npackets_down = Column(BigInteger, nullable=False, default=0)
+    npackets_lost = Column(Float, nullable=False, default=0)
+    max_rssi = Column(Float, nullable=True)
+    
 
     def to_json(self):
         return {

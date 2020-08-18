@@ -28,3 +28,4 @@ from .policy import (
     PolicyListResource,
     PolicyResource
 )
+from .ResourceUsage import ResourceUsageListAPI
