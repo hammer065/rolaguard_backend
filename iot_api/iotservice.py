@@ -139,6 +139,9 @@ api.add_resource(res.TagListAPI, '/api/v1.0/tags')
 api.add_resource(res.TagAPI, '/api/v1.0/tags/<int:tag_id>')
 api.add_resource(res.TagAssetsAPI, '/api/v1.0/tags/<int:tag_id>/assets')
 
+# App keys
+api.add_resource(res.AppKeysAPI, '/api/v1.0/app_keys')
+
 # Resource usage
 api.add_resource(res.ResourceUsageListAPI, '/api/v1.0/resource_usage/list')
 

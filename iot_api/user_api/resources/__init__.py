@@ -28,4 +28,5 @@ from .policy import (
     PolicyListResource,
     PolicyResource
 )
+from .AppKeys import AppKeysAPI
 from .ResourceUsage import ResourceUsageListAPI

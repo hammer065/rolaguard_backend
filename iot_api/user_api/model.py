@@ -1101,13 +1101,6 @@ class RowProcessed(db.Model):
     analyzer = Column(String(20), nullable=False)
 
 
-class AppKey(db.Model):
-    __tablename__ = 'app_key'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    key = Column(String(32), nullable=False)
-    organization_id = Column(BigInteger, ForeignKey("organization.id"), nullable=True)
-
-
 class DataCollectorToDevice(db.Model):
     __tablename__ = 'data_collector_to_device'
     data_collector_id = Column(BigInteger, ForeignKey("data_collector.id"), nullable=False, primary_key=True)
