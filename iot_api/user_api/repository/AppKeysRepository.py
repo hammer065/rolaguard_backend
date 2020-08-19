@@ -33,20 +33,27 @@ def create(keys_list, organization_id):
     already_in_db = set(row.key for row in get_with(
         organization_id = organization_id,
         keys_list = keys_list))
-    total = count_with(organization_id = organization_id)
-    created = 0
+    added_keys = []
 
     for key in keys_list:
         if key not in already_in_db:
             db.session.add(AppKey(key = key, organization_id = organization_id))
             already_in_db.add(key)
-            created = created + 1
-
-    if total + created > MAX_PER_ORGANIZATION:
-        db.session.rollback()
-        raise Error.Forbidden("Creating these app keys would exceed the limit per organization")
+            added_keys.append(key)
 
     db.session.commit()
+
+    created = len(added_keys)
+    total = count_with(organization_id = organization_id)
+    if total > MAX_PER_ORGANIZATION:
+        try:
+            delete(keys_list=added_keys, organization_id=organization_id)
+        except Exception as e:
+            log.warning(f"Error {e} on delete added keys after max app keys limit exceeded for organization with id {organization_id}")
+            return created
+
+        raise Error.Forbidden("Creating these app keys would exceed the limit per organization")
+
     return created
 
 def delete(keys_list, organization_id):
