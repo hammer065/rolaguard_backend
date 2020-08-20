@@ -84,7 +84,7 @@ def list_all(organization_id, page=None, size=None,
 
     #TODO: add filter by dates
 
-    asset_query = asset_query.order_by(text('type desc, connected desc'))
+    asset_query = asset_query.order_by(text('type desc, connected desc, id'))
     if page and size:
         return asset_query.paginate(page=page, per_page=size, error_out=False)
     else:

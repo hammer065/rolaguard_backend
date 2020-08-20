@@ -106,7 +106,7 @@ def list_all(organization_id, page=None, size=None,
     else:
         raise Error.BadRequest("Invalid device type parameter")
 
-    asset_query = asset_query.order_by(text('type desc'))
+    asset_query = asset_query.order_by(text('type desc, id'))
     if page and size:
         return asset_query.paginate(page=page, per_page=size, error_out=False)
     else:
