@@ -35,11 +35,15 @@ class ResourceUsageListAPI(Resource):
         size = request.args.get('size', default=20, type=int)
 
         results = ResourceUsageRepository.list_all(
-            organization_id=organization_id,
-            page=page, size=size,
-            gateway_ids=request.args.getlist('gateway_ids[]'),
-            data_collector_ids=request.args.getlist('data_collector_ids[]'),
-            asset_type=request.args.get('asset_type', type=str)
+            organization_id = organization_id,
+            page = page, size = size,
+            asset_type = request.args.get('asset_type', default=None, type=str),
+            asset_status = request.args.get('asset_status', default=None, type=str),
+            gateway_ids = request.args.getlist('gateway_ids[]'),
+            min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
+            max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
+            min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
+            max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
         )
 
         PacketsInfo = namedtuple('PacketsInfo', ['up', 'down', 'lost'])
@@ -90,3 +94,173 @@ def buildPacketsInfo(uptime, count, total):
         'per_day': 24*60*60/secs_bw_packets if secs_bw_packets else 0,
         'percentage': 100*count/total if total else None
     }
+
+class ResourceUsagePerStatusCountAPI(Resource):
+    """ Endpoint to count assets (devices+gateways) grouped by status (connected/disconnected).
+    Request parameters: 
+        - asset_type: for filtering, count only this type of asset ("device" or "gateway").
+        - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
+        - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
+        - max_signal_strength: for filtering, count only the assets with signal strength not higher than this value (dBm)
+        - min_packet_loss: for filtering, count only the assets with packet loss not lower than this value (percentage)
+        - max_packet_loss: for filtering, count only the assets with packet loss not higher than this value (percentage)
+    Returns:
+        - A list of JSONs, where each JSON has three fields: id, name, count. (id = name = 'connected'/'disconnected')
+    """
+    @jwt_required
+    def get(self):
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+        if not user or is_system(user.id):
+            raise Error.Forbidden()
+        organization_id = user.organization_id
+
+        groups = ResourceUsageRepository.count_per_status(
+            organization_id = organization_id,
+            asset_type = request.args.get('asset_type', default=None, type=str),
+            asset_status = request.args.get('asset_status', default=None, type=str),
+            gateway_ids = request.args.getlist('gateway_ids[]'),
+            min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
+            max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
+            min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
+            max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+        )
+        return {
+            'total_count': sum(group['count'] for group in groups),
+            'groups': groups
+        }, 200
+
+class ResourceUsagePerGatewayCountAPI(Resource):
+    """ Endpoint to count assets (devices+gateways) grouped by gateway.
+    Request parameters: 
+        - asset_type: for filtering, count only this type of asset ("device" or "gateway").
+        - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
+        - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
+        - max_signal_strength: for filtering, count only the assets with signal strength not higher than this value (dBm)
+        - min_packet_loss: for filtering, count only the assets with packet loss not lower than this value (percentage)
+        - max_packet_loss: for filtering, count only the assets with packet loss not higher than this value (percentage)
+    Returns:
+        - A list of JSONs, where each JSON has three fields: id, name, count. (name = hex_id)
+    """
+    @jwt_required
+    def get(self):
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+        if not user or is_system(user.id):
+            raise Error.Forbidden()
+        organization_id = user.organization_id
+
+        groups = ResourceUsageRepository.count_per_gateway(
+            organization_id = organization_id,
+            asset_type = request.args.get('asset_type', default=None, type=str),
+            asset_status = request.args.get('asset_status', default=None, type=str),
+            gateway_ids = request.args.getlist('gateway_ids[]'),
+            min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
+            max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
+            min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
+            max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+        )
+        return {
+            'total_count': sum(group['count'] for group in groups),
+            'groups': groups
+        }, 200
+
+class ResourceUsagePerSignalStrengthCountAPI(Resource):
+    """ Endpoint to count assets (devices+gateways) grouped by signal strength.
+    Request parameters: 
+        - asset_type: for filtering, count only this type of asset ("device" or "gateway").
+        - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
+        - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
+        - max_signal_strength: for filtering, count only the assets with signal strength not higher than this value (dBm)
+        - min_packet_loss: for filtering, count only the assets with packet loss not lower than this value (percentage)
+        - max_packet_loss: for filtering, count only the assets with packet loss not higher than this value (percentage)
+    Returns:
+        - A list of JSONs, where each JSON has the following structure:
+            'id': {
+                'min_signal_strength': int,
+                'max_signal_strength': int
+            },
+            'name': 'Disconnected'/'Unusable'/'Weak'/'Okay'/'Great'/'Excellent',
+            'count': int
+    """
+    @jwt_required
+    def get(self):
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+        if not user or is_system(user.id):
+            raise Error.Forbidden()
+        organization_id = user.organization_id
+
+        groups = ResourceUsageRepository.count_per_signal_strength(
+            organization_id = organization_id,
+            asset_type = request.args.get('asset_type', default=None, type=str),
+            asset_status = request.args.get('asset_status', default=None, type=str),
+            gateway_ids = request.args.getlist('gateway_ids[]'),
+            min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
+            max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
+            min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
+            max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+        )
+        # Make the ids a JSON object instead of a tuple
+        for signal_range in groups:
+            signal_range['id'] = {
+                'min_signal_strength': signal_range['id'][0],
+                'max_signal_strength': signal_range['id'][1]
+            }
+
+        return {
+            'total_count': sum(group['count'] for group in groups),
+            'groups': groups
+        }, 200
+
+class ResourceUsagePerPacketLossCountAPI(Resource):
+    """ Endpoint to count assets (devices+gateways) grouped by packet loss percentage
+    Request parameters: 
+        - asset_type: for filtering, count only this type of asset ("device" or "gateway").
+        - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
+        - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
+        - max_signal_strength: for filtering, count only the assets with signal strength not higher than this value (dBm)
+        - min_packet_loss: for filtering, count only the assets with packet loss not lower than this value (percentage)
+        - max_packet_loss: for filtering, count only the assets with packet loss not higher than this value (percentage)
+    Returns:
+        - A list of JSONs, where each JSON has the following structure:
+            'id': {
+                'min_packet_loss': int,
+                'max_packet_loss': int
+            },
+            'name': '[0,10)'/'[10,20)'/.../'[80,90)'/'[90,100]',
+            'count': int
+    """
+    @jwt_required
+    def get(self):
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+        if not user or is_system(user.id):
+            raise Error.Forbidden()
+        organization_id = user.organization_id
+
+        groups = ResourceUsageRepository.count_per_packet_loss(
+            organization_id = organization_id,
+            asset_type = request.args.get('asset_type', default=None, type=str),
+            asset_status = request.args.get('asset_status', default=None, type=str),
+            gateway_ids = request.args.getlist('gateway_ids[]'),
+            min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
+            max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
+            min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
+            max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+        )
+        # Make the ids a JSON object instead of a tuple
+        for loss_range in groups:
+            loss_range['id'] = {
+                'min_packet_loss': loss_range['id'][0],
+                'max_packet_loss': loss_range['id'][1]
+            }
+
+        return {
+            'total_count': sum(group['count'] for group in groups),
+            'groups': groups
+        }, 200

@@ -144,7 +144,10 @@ api.add_resource(res.AppKeysAPI, '/api/v1.0/app_keys')
 
 # Resource usage
 api.add_resource(res.ResourceUsageListAPI, '/api/v1.0/resource_usage/list')
-
+api.add_resource(res.ResourceUsagePerStatusCountAPI, '/api/v1.0/resource_usage/count/status')
+api.add_resource(res.ResourceUsagePerGatewayCountAPI, '/api/v1.0/resource_usage/count/gateway')
+api.add_resource(res.ResourceUsagePerSignalStrengthCountAPI, '/api/v1.0/resource_usage/count/signal')
+api.add_resource(res.ResourceUsagePerPacketLossCountAPI, '/api/v1.0/resource_usage/count/loss')
 
 if __name__ == '__main__':
     socketio.run(app, port=5000)
