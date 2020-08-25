@@ -14,50 +14,6 @@ from datetime import datetime
 LOG = iot_logging.getLogger(__name__)
 
 
-class DeviceToOrganization(db.Model):
-    __tablename__ = "device_to_organization"
-
-    device_id = db.Column(db.BigInteger, db.ForeignKey(
-        "device.id"), primary_key=True)
-    organization_id = db.Column(db.BigInteger, db.ForeignKey(
-        "organization.id"), primary_key=True)
-
-    def save_to_db(self):
-        db.session.add(self)
-        db.session.commit()
-
-    def delete_from_db(self):
-        db.session.delete(self)
-        db.session.commit()
-
-    @classmethod
-    def find_all_device_id_by_organization_id(cls, organization_id):
-        return cls.query.filter_by(organization_id=organization_id).all()
-
-    @classmethod
-    def get_count_device_id_by_organization_id(cls, organization_id):
-        return cls.query.filter_by(organization_id=organization_id).count()
-
-    @classmethod
-    def find_all_organization_id_by_device_id(cls, device_id):
-        return cls.query.filter_by(device_id=device_id).all()
-
-    @classmethod
-    def find_by_device_id_and_by_organization_id(cls, device_id, organization_id):
-        return cls.query.filter_by(device_id=device_id, organization_id=organization_id).first()
-
-    @classmethod
-    def return_all(cls, json=True):
-        if json:
-            return {"device_to_organization": list(map(lambda organization: organization.to_json(), cls.query.all()))}
-        else:
-            return cls.query.all()
-
-    @classmethod
-    def get_count_all(cls):
-        return cls.query.count()
-
-
 class Organization(db.Model):
     __tablename__ = "organization"
 
@@ -66,7 +22,6 @@ class Organization(db.Model):
     country = db.Column(db.String(120))
     region = db.Column(db.String(120))
     users = db.relationship("User", backref="organization", lazy=True)
-    devices = db.relationship("DeviceToOrganization", backref="organization")
     
     def to_json(self):
         return {
