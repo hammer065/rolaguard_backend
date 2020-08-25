@@ -6,7 +6,7 @@ from sqlalchemy.sql import select, expression, text
 
 from iot_api.user_api import db
 from iot_api.user_api.repository import DeviceRepository, GatewayRepository
-from iot_api.user_api.model import Device, Gateway, DataCollectorToDevice, GatewayToDevice
+from iot_api.user_api.model import Device, Gateway, GatewayToDevice
 from iot_api.user_api.models import DataCollector, DeviceToTag, GatewayToTag, Tag
 from iot_api.user_api import Error
 
@@ -61,7 +61,7 @@ def list_all(organization_id, page=None, size=None,
         Device.connected,
         Device.last_activity
         ).select_from(Device).\
-            join(DataCollectorToDevice).join(DataCollector).\
+            join(DataCollector).\
             join(GatewayToDevice).\
             filter(Device.organization_id==organization_id)
     gtw_query = db.session.query(
@@ -90,7 +90,7 @@ def list_all(organization_id, page=None, size=None,
         dev_query = dev_query.filter(GatewayToDevice.gateway_id.in_(gateway_ids))
         gtw_query = gtw_query.filter(Gateway.id.in_(gateway_ids))
     if data_collector_ids:
-        dev_query = dev_query.filter(DataCollectorToDevice.data_collector_id.in_(data_collector_ids))
+        dev_query = dev_query.filter(Device.data_collector_id.in_(data_collector_ids))
         gtw_query = gtw_query.filter(Gateway.data_collector_id.in_(data_collector_ids))
     if tag_ids:
         dev_query = dev_query.filter(Device.id.in_(DeviceRepository.query_ids_with(tag_ids=tag_ids)))
@@ -129,7 +129,6 @@ def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
     """
     # Build two queries, one for devices and one for gateways
     dev_query = db.session.query(Device.vendor, func.count(distinct(Device.id))).\
-        join(DataCollectorToDevice).\
         join(GatewayToDevice).\
         group_by(Device.vendor).\
         filter(Device.organization_id==organization_id)
@@ -146,7 +145,7 @@ def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
         dev_query = dev_query.filter(GatewayToDevice.gateway_id.in_(gateway_ids))
         gtw_query = gtw_query.filter(Gateway.id.in_(gateway_ids))
     if data_collector_ids:
-        dev_query = dev_query.filter(DataCollectorToDevice.data_collector_id.in_(data_collector_ids))
+        dev_query = dev_query.filter(Device.data_collector_id.in_(data_collector_ids))
         gtw_query = gtw_query.filter(Gateway.data_collector_id.in_(data_collector_ids))
     if tag_ids:
         dev_query = dev_query.filter(Device.id.in_(DeviceRepository.query_ids_with(tag_ids=tag_ids)))
@@ -244,7 +243,7 @@ def count_per_datacollector(organization_id, vendors=None, gateway_ids=None,
     # Base queries, one for devices and one for gateways
     dev_query = db.session.query(DataCollector.id, DataCollector.name, func.count(distinct(Device.id))).\
         select_from(Device).\
-        join(DataCollectorToDevice).join(DataCollector).\
+        join(DataCollector).\
         join(GatewayToDevice).\
         group_by(DataCollector.id, DataCollector.name).\
         filter(DataCollector.organization_id == organization_id)
@@ -305,7 +304,6 @@ def count_per_tag(organization_id, vendors=None, gateway_ids=None,
     dev_query = db.session.query(Tag.id, Tag.name, func.count(distinct(Device.id))).\
         select_from(Device).\
         join(DeviceToTag).\
-        join(DataCollectorToDevice).\
         join(GatewayToDevice).\
         group_by(Tag.id, Tag.name).\
         filter(Device.organization_id == organization_id)
@@ -324,7 +322,7 @@ def count_per_tag(organization_id, vendors=None, gateway_ids=None,
         dev_query = dev_query.filter(GatewayToDevice.gateway_id.in_(gateway_ids))
         gtw_query = gtw_query.filter(Gateway.id.in_(gateway_ids))
     if data_collector_ids:
-        dev_query = dev_query.filter(DataCollectorToDevice.data_collector_id.in_(data_collector_ids))
+        dev_query = dev_query.filter(Device.data_collector_id.in_(data_collector_ids))
         gtw_query = gtw_query.filter(Gateway.data_collector_id.in_(data_collector_ids))
     if tag_ids:
         dev_query = dev_query.filter(Device.id.in_(DeviceRepository.query_ids_with(tag_ids=tag_ids)))

@@ -6,7 +6,7 @@ from sqlalchemy.sql import select, expression, text, not_, and_
 
 from iot_api.user_api import db
 from iot_api.user_api.repository import DeviceRepository, GatewayRepository
-from iot_api.user_api.model import Device, Gateway, DataCollectorToDevice, GatewayToDevice
+from iot_api.user_api.model import Device, Gateway, GatewayToDevice
 from iot_api.user_api.models import DataCollector
 from iot_api.user_api import Error
 
@@ -44,7 +44,7 @@ def list_all(organization_id, page=None, size=None,
         Device.npackets_lost.label('packet_loss'),
         Device.max_rssi
         ).select_from(Device).\
-            join(DataCollectorToDevice).join(DataCollector).\
+            join(DataCollector).\
             join(GatewayToDevice).\
             filter(Device.organization_id==organization_id)
     gtw_query = db.session.query(
