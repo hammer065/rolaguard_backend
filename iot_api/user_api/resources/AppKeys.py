@@ -53,6 +53,7 @@ class AppKeysAPI(Resource):
         if app_keys is None:
             raise Error.BadRequest(f"AppKeysAPI POST request body must contain a non-empty list of keys with at most {MAX_PER_ORGANIZATION} keys")
 
+        app_keys = [key.upper() for key in app_keys]
         total = len(app_keys)
         app_keys = list(set(app_keys))
         not_duplicated = len(app_keys)
@@ -76,6 +77,7 @@ class AppKeysAPI(Resource):
         if app_keys is None:
             raise Error.BadRequest(f"AppKeysAPI POST request body must contain a non-empty list of keys with at most {MAX_PER_ORGANIZATION} keys")
 
+        app_keys = [key.upper() for key in app_keys]
         total = len(app_keys)
         app_keys = list(set(app_keys))
         not_duplicated = len(app_keys)
