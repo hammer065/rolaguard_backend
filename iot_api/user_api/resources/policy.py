@@ -39,6 +39,8 @@ class PolicyListResource(Resource):
         headers = {'total-pages': result.pages, 'total-items': result.total}
 
         for policy in result.items:
+            PolicyRepository.update_items(policy)
+
             existing_type_codes = [item.alert_type_code for item in policy.items]
             PolicyRepository.add_missing_items(policy.id, existing_type_codes)
 

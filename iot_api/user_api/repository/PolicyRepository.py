@@ -28,3 +28,27 @@ def add_missing_items(policy_id, existing_type_codes):
             
     db.session.commit()
     return True
+
+def update_items(policy):
+    """
+    For every existing item for this policy, add missing
+    default parameters and update the item if needed
+    """
+    changes_made = False
+    for item in policy.items:
+        default_parameters = json.loads(item.alert_type.parameters)
+        default_parameters = {par : val['default'] for par, val in default_parameters.items()}
+        parameters = json.loads(item.parameters)
+        parameters = {par : val for par, val in parameters.items()}
+
+        needs_update = False
+        for par, val in default_parameters.items():
+            if par not in parameters:
+                needs_update = True
+                parameters[par] = val
+        if needs_update:
+            changes_made = True
+            item.parameters = json.dumps(parameters)
+
+    if changes_made:
+        db.session.commit()    
