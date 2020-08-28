@@ -47,6 +47,17 @@ def check_if_token_in_blacklist(decrypted_token):
     jti = decrypted_token['jti']
     return RevokedTokenModel.is_jti_blacklisted(jti)
 
+@jwt.user_claims_loader
+def add_claims_to_access_token(user):
+    return {
+        'user_roles_id': [user_role.to_json().get('user_role_id') for user_role in user.user_roles],
+        'organization_id': user.organization_id
+    }
+
+@jwt.user_identity_loader 
+def user_identity_lookup(user):
+    return user.username
+
 #region User & Organization
 # api.add_resource(resources.UserGroupListAPI, '/api/v1.0/user_group')
 api.add_resource(res.ChangeEmailAPI, '/api/v1.0/change_email/<path:token>')
@@ -125,6 +136,9 @@ api.add_resource(res.QuarantineRemoveManuallyAPI, '/api/v1.0/quarantined_devices
 #endregion
 
 # Inventory
+api.add_resource(res.AssetInformationAPI, '/api/v1.0/inventory/<asset_type>/<int:asset_id>')
+api.add_resource(res.AssetAlertsAPI, '/api/v1.0/inventory/<asset_type>/<int:asset_id>/alerts')
+api.add_resource(res.AssetIssuesAPI, '/api/v1.0/inventory/<asset_type>/<int:asset_id>/issues')
 api.add_resource(res.AssetsListAPI, '/api/v1.0/inventory/list')
 api.add_resource(res.AssetsPerVendorCountAPI, '/api/v1.0/inventory/count/vendor')
 api.add_resource(res.AssetsPerGatewayCountAPI, '/api/v1.0/inventory/count/gateway')

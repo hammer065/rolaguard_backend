@@ -1,15 +1,243 @@
 import calendar
+import dateutil.parser as dp
 from flask import request, abort
 from flask_restful import Resource
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_claims
 
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
-from iot_api.user_api.model import User
+from iot_api.user_api.model import User, Alert, Quarantine, GatewayToDevice
 from iot_api.user_api.Utils import is_system
 from iot_api.user_api.repository import AssetRepository, TagRepository
+from iot_api.JwtUtils import not_system_and_jwt_required
 
+class AssetInformationAPI(Resource):
+    """ Endpoint to get information about an asset of a given type
+    Request parameters:
+        - asset_type: type of requested asset (can be device or gateway).
+        - asset_id: database id of the asset
+    Returns:
+        - JSON with requested asset. See Device/Gateway model's to_asset_json method for further details
+    """
+    @not_system_and_jwt_required
+    def get(self, asset_type, asset_id):
+        organization_id = get_jwt_claims().get('organization_id')
+        asset = AssetRepository.get_with(asset_id, asset_type,  organization_id)
+        response = asset.to_asset_json()
+        response['tags'] = [{
+                "id": tag.id,
+                "name": tag.name,
+                "color": tag.color
+            } for tag in TagRepository.list_asset_tags(asset_id, asset_type, organization_id)
+        ]
+        return response, 200
+       
+class AssetAlertsAPI(Resource):
+    """ Endpoint to list and filter alerts from a given asset
+    Request parameters:
+        - asset_type: type of asset (can be device or gateway).
+        - asset_id: database id of the asset
+        - since: for date filtering, if specified, returns alerts created AFTER this date.
+            if is not specified, no date filtering is applied
+        - until: for date filtering, if specified, returns alerts created BEFORE this date
+            if is not specified, no date filtering is applied
+        - types: include alerts of types specified in this list
+            if is not specified, no type filtering is applied
+        - resolved: filter by status of alert's resolution. 
+            if is not specified, no filter is applied
+        - risks: include only alerts whose associated risk's enumerated in this list
+            if is not specified, no risk filtering is applied
+        - order_by: ordering criteria, list composed by
+            order_field: database field 
+            order_direction: either ASC or DESC
+            if is not specified, default behaviour is to order by date (created_at field), newest first (DESC)
+        - page: requested page number for pagination, defaults to 1 (first page)
+        - size: results per page, defaults to 20
+    Returns:
+        - paginated list of alerts. see Alert model's to_json method to further details
+    """
+    @not_system_and_jwt_required
+    def get(self, asset_type, asset_id):
+        organization_id = get_jwt_claims().get("organization_id")
+        since = request.args.get('created_at[gte]')
+        until = request.args.get('created_at[lte]')
+        types = request.args.getlist('type[]')
+        resolved = request.args.get('resolved')
+        risks = request.args.getlist('risk[]')
+        order_by = request.args.getlist('order_by[]')
+        page = request.args.get('page', default=1, type=int)
+        size = request.args.get('size', default=20, type=int)
+        
+        if since:
+            try:
+                since = dp.parse(since)
+            except Exception:
+                raise Error.BadRequest('no valid created_at[gte] value')
+
+        if until:
+            try:
+                until = dp.parse(until)
+            except Exception:
+                raise Error.BadRequest('no valid created_at[lte] value')
+
+        if since and until and since > until:
+            raise Error.BadRequest('since value must be before to until value')
+
+        if not order_by or len(order_by) < 2 or order_by[1] not in ('ASC', 'DESC'):
+            order_by = None
+
+        if page:
+            try:
+                page = int(page)
+            except Exception:
+                return Error.BadRequest('no valid page value')
+
+        if size:
+            try:
+                size = int(size)
+            except Exception:
+                return Error.BadRequest('no valid size value')
+
+        if resolved:
+            resolved = resolved == 'true'
+
+        asset = AssetRepository.get_with(asset_id, asset_type, organization_id)
+
+        results = (Alert.find_by_device_id(
+            device_id=asset.id,
+            organization_id=organization_id,
+            since=since,
+            until=until,
+            types=types,
+            resolved=resolved,
+            risks=risks,
+            order_by=order_by,
+            page=page,
+            size=size
+        ) if asset_type == 'device' 
+        else Alert.find_by_gateway_id(
+            gateway_id=asset.id,
+            organization_id=organization_id,
+            since=since,
+            until=until,
+            types=types,
+            resolved=resolved,
+            risks=risks,
+            order_by=order_by,
+            page=page,
+            size=size
+        ))
+
+        alerts = [alert.to_json() for alert in results.items]
+        response = {
+            'alerts' : alerts,
+            'total_pages': results.pages,
+            'total_items': results.total
+        }
+        return response, 200
+
+class AssetIssuesAPI(Resource):
+    """ Endpoint to list and filter quarantine entries from a given asset
+    Request parameters:
+        - asset_type: type of asset (can be device or gateway).
+        - asset_id: database id of the asset
+        - since: for date filtering, if specified, returns alerts created AFTER this date.
+            if is not specified, no date filtering is applied
+        - until: for date filtering, if specified, returns alerts created BEFORE this date
+            if is not specified, no date filtering is applied
+        - alert_types: include alerts of types specified in this list
+            if is not specified, no type filtering is applied
+        - resolved: filter by status of alert's resolution. 
+            if is not specified, no filter is applied
+        - risks: include only alerts whose associated risk's enumerated in this list
+            if is not specified, no risk filtering is applied
+        - order_by: ordering criteria, list composed by
+            order_field: database field 
+            order_direction: either ASC or DESC
+            if is not specified, default behaviour is to order by date (created_at field), newest first (DESC)
+        - page: requested page number for pagination, defaults to 1 (first page)
+        - size: results per page, defaults to 20
+    Returns:
+        - paginated list of issues. see Quarantine model's to_json method to further details
+    """
+    @not_system_and_jwt_required
+    def get(self, asset_type, asset_id):
+        organization_id = get_jwt_claims().get("organization_id")
+        since = request.args.get('created_at[gte]')
+        until = request.args.get('created_at[lte]')
+        alert_types = request.args.getlist('alerttype[]')
+        risks = request.args.getlist('risk[]')
+        order_by = request.args.getlist('order_by[]')
+        page = request.args.get('page')
+        size = request.args.get('size')
+
+        if since:
+            try:
+                since = dp.parse(since)
+            except Exception:
+                raise Error.BadRequest('no valid created_at[gte] value')
+        log.debug(since)
+        if until:
+            try:
+                until = dp.parse(until)
+            except Exception:
+                raise Error.BadRequest('no valid created_at[lte] value')
+
+        if since and until and since > until:
+            raise Error.BadRequest('since value must be before to until value')
+
+        if not order_by or len(order_by) < 2 or order_by[1] not in ('ASC', 'DESC'):
+            order_by = None
+
+        if page:
+            try:
+                page = int(page)
+            except Exception:
+                return Error.BadRequest('no valid page value')
+
+        if size:
+            try:
+                size = int(size)
+            except Exception:
+                return Error.BadRequest('no valid size value')
+
+        asset = AssetRepository.get_with(asset_id, asset_type, organization_id)
+        
+        # for a device, return all the issues that this device created
+        # for a gateway, return all the issues that the devices connected to this gateway have created
+        results = (Quarantine.find(
+            organization_id=organization_id,
+            since=since,
+            until=until,
+            alert_types=alert_types,
+            devices=[asset.id],
+            risks=risks,
+            data_collectors=None,
+            order_by=order_by,
+            page=page,
+            size=size
+        ) if asset_type == 'device'
+        else Quarantine.find(
+            organization_id=organization_id,
+            since=since,
+            until=until,
+            alert_types=alert_types,
+            devices=[entry.device_id for entry in GatewayToDevice.find_by_gateway_id(asset.id)],
+            risks=risks,
+            data_collectors=None,
+            order_by=order_by,
+            page=page,
+            size=size
+        ))
+
+        issues = [issue.to_list_json() for issue in results.items]
+        response = {
+            'issues' : issues,
+            'total_pages': results.pages,
+            'total_items': results.total
+        }
+        return response,200
 
 
 class AssetsListAPI(Resource):

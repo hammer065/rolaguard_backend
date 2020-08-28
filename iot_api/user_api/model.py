@@ -613,6 +613,76 @@ class Alert(db.Model):
             LOG.error(e)
 
     @classmethod
+    def find_by_gateway_id(cls, gateway_id, organization_id, since, until, types, resolved, risks, order_by, page, size):
+        query = db.session.query(Alert)\
+                .join(DataCollector)\
+                .filter(DataCollector.organization_id == organization_id)\
+                .filter(cls.show == True)\
+                .filter(cls.gateway_id == gateway_id)
+
+        if since:
+            query = query.filter(cls.created_at >= since)
+        if until:
+            query = query.filter(cls.created_at <= until)
+        if types and len(types) > 0:
+            query = query.filter(cls.type.in_(types))
+        if resolved is not None:
+            if resolved:
+                query = query.filter(cls.resolved_at != None)
+            else:
+                query = query.filter(cls.resolved_at == None)
+        if risks and len(risks) > 0:
+            query = query.filter(AlertType.code == cls.type).filter(AlertType.risk.in_(risks))
+        if order_by:
+            order_field = order_by[0]
+            order_direction = order_by[1]
+            if 'ASC' == order_direction:
+                query = query.order_by(asc(getattr(cls, order_field)))
+            else:
+                query = query.order_by(desc(getattr(cls, order_field)))
+        else:
+            query = query.order_by(desc(cls.created_at)) # newest first if no order_by parameter is specified
+        if page and size:
+            return query.paginate(page=page, per_page=size, error_out=config.ERROR_OUT, max_per_page=config.MAX_PER_PAGE)
+      
+        return query.all()
+
+    @classmethod
+    def find_by_device_id(cls, device_id, organization_id, since, until, types, resolved, risks, order_by, page, size):
+        query = db.session.query(Alert)\
+                .join(DataCollector)\
+                .filter(DataCollector.organization_id == organization_id)\
+                .filter(cls.show == True)\
+                .filter(cls.device_id == device_id)
+
+        if since:
+            query = query.filter(cls.created_at >= since)
+        if until:
+            query = query.filter(cls.created_at <= until)
+        if types and len(types) > 0:
+            query = query.filter(cls.type.in_(types))
+        if resolved is not None:
+            if resolved:
+                query = query.filter(cls.resolved_at != None)
+            else:
+                query = query.filter(cls.resolved_at == None)
+        if risks and len(risks) > 0:
+            query = query.filter(AlertType.code == cls.type).filter(AlertType.risk.in_(risks))
+        if order_by:
+            order_field = order_by[0]
+            order_direction = order_by[1]
+            if 'ASC' == order_direction:
+                query = query.order_by(asc(getattr(cls, order_field)))
+            else:
+                query = query.order_by(desc(getattr(cls, order_field)))
+        else:
+            query = query.order_by(desc(cls.created_at)) # newest first if no order_by parameter is specified
+        if page and size:
+            return query.paginate(page=page, per_page=size, error_out=config.ERROR_OUT, max_per_page=config.MAX_PER_PAGE)
+        
+        return query.all()
+
+    @classmethod
     def count(cls, organization_id, since, until, types, resolved, risks, data_collectors):
         try:
             query = db.session.query(func.count(1).label('count'))\
@@ -774,7 +844,59 @@ class Gateway(db.Model):
     npackets_up = Column(BigInteger, nullable=False, default=0)
     npackets_down = Column(BigInteger, nullable=False, default=0)
     importance = Column(SQLEnum(AssetImportance))
+
+    def to_json(self):
+         return {
+            'id': self.id,
+            'gw_hex_id': self.gw_hex_id,
+            'name': self.name,
+            'vendor': self.vendor,
+            'location': {
+                'latitude': self.location_latitude,
+                'longitude': self.location_longitude
+            },
+            'data_collector_id': self.data_collector_id,
+            'organization_id': self.organization_id,
+            'connected': self.connected,
+            'last_activity': "{}".format(self.last_activity),
+            'activity_freq': self.activity_freq,
+            'importance': self.importance.value,
+            'npackets_up': self.npackets_up,
+            'npackets_down': self.npackets_down
+        }
     
+    def to_asset_json(self):
+        return {
+            'id' : self.id,
+            'hex_id' : self.gw_hex_id,
+            'organization_id': self.organization_id,
+            'type' : self.__tablename__,
+            'name' : self.name,
+            'join_eui' : None,
+            'data_collector' : self.data_collector_id,
+            'vendor' : self.vendor,
+            'app_name' : None,
+            'connected' : self.connected,
+            'last_activity' : "{}".format(self.last_activity),
+            'location' : {'latitude' : self.location_latitude,
+                          'longitude': self.location_longitude},
+            'activity_freq': self.activity_freq,
+            'importance': self.importance.value,
+            'npackets_up': self.npackets_up,
+            'npackets_down': self.npackets_down,
+            'npackets_lost': None,
+            'max_rssi': None,
+            'first_up_timestamp': None,
+            'last_up_timestamp': None,
+            'repeated_dev_nonce': None,
+            'join_request_counter': None,
+            'join_accept_counter': None,
+            'has_joined': None,
+            'join_inferred': None,
+            'is_otaa': None,
+            'last_packet_id': None      
+        }
+
 class Device(db.Model):
     __tablename__ = 'device'
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -810,8 +932,51 @@ class Device(db.Model):
         return {
             'id': self.id,
             'dev_eui': self.dev_eui,
+            'name': self.name,
+            'vendor': self.vendor,
+            'app_name': self.app_name,
             'join_eui': self.join_eui,
             'organization_id': self.organization_id,
+            'first_up_timestamp': "{}".format(self.first_up_timestamp),
+            'last_up_timestamp': "{}".format(self.last_up_timestamp),
+            'repeated_dev_nonce': self.repeated_dev_nonce,
+            'join_request_counter': self.join_request_counter,
+            'join_accept_counter': self.join_request_counter,
+            'has_joined': self.has_joined,
+            'join_inferred': self.join_inferred,
+            'is_otaa': self.is_otaa,
+            'last_packet_id': self.last_packet_id,
+            'connected': self.connected,
+            'last_activity': "{}".format(self.last_activity),
+            'activity_freq': self.activity_freq,
+            'importance': self.importance.value,
+            'npackets_up': self.npackets_up,
+            'npackets_down': self.npackets_down,
+            'npackets_lost': self.npackets_lost,
+            'max_rssi': self.max_rssi   
+        }
+
+    def to_asset_json(self):
+        return {
+            'id' : self.id,
+            'hex_id' : self.dev_eui,
+            'organization_id': self.organization_id,
+            'type' : self.__tablename__,
+            'name' : self.name,
+            'join_eui': self.join_eui,
+            'data_collector' : self.data_collector_id,
+            'vendor' : self.vendor,
+            'app_name' : self.app_name,
+            'connected' : self.connected,
+            'last_activity' : "{}".format(self.last_activity),
+            'location' : {'latitude' : None,
+                        'longitude': None},
+            'activity_freq': self.activity_freq,
+            'importance': self.importance.value,
+            'npackets_up': self.npackets_up,
+            'npackets_down': self.npackets_down,
+            'npackets_lost': self.npackets_lost,
+            'max_rssi': self.max_rssi,
             'first_up_timestamp': "{}".format(self.first_up_timestamp),
             'last_up_timestamp': "{}".format(self.last_up_timestamp),
             'repeated_dev_nonce': self.repeated_dev_nonce,
@@ -872,6 +1037,9 @@ class GatewayToDevice(db.Model):
     gateway_id = Column(BigInteger, db.ForeignKey("gateway.id"), nullable=False, primary_key=True)
     device_id = Column(BigInteger, db.ForeignKey("device.id"), nullable=False, primary_key=True)
 
+    @classmethod
+    def find_by_gateway_id(cls, gateway_id):
+        return cls.query.filter(cls.gateway_id == gateway_id).all()
 
 class GatewayToDeviceSession(db.Model):
     __tablename__ = 'gateway_to_device_session'
@@ -1056,7 +1224,6 @@ class RowProcessed(db.Model):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     last_row = Column(Integer, nullable=False)
     analyzer = Column(String(20), nullable=False)
-
 
 class StatsCounters(db.Model):
     __tablename__ = 'stats_counters'
@@ -1244,6 +1411,8 @@ class Quarantine(db.Model):
     resolution_comment = Column(String(1024), nullable=True)
     # quarantine parameters (optional)
     parameters = Column(String(4096), nullable=True)
+    # device relationship
+    device_id = Column(BigInteger, ForeignKey("device.id"))
 
     alert = relationship("Alert", lazy="joined")
     #endregion
@@ -1255,9 +1424,10 @@ class Quarantine(db.Model):
             'organization_id': self.organization_id,
             'alert': self.alert.to_json(),
             'alert_type': self.alert.alert_type.to_json(),
-            'device_id': self.alert.device_id,
+            'device_id': self.device_id,
             'data_collector_id': data_collector.id,
             'data_collector_name': data_collector.name,
+            'parameters': json.loads(self.parameters if self.parameters is not None else '{}'),
             'since': f'{self.since}' if self.since else None,
             'last_checked': f'{self.last_checked}' if self.last_checked else None,
             'resolved_at': f'{self.resolved_at}' if self.resolved_at else None,

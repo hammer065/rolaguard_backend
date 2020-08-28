@@ -1,5 +1,8 @@
 from .endpoints import *
 from .Inventory import (
+    AssetInformationAPI,
+    AssetAlertsAPI,
+    AssetIssuesAPI,
     AssetsListAPI,
     AssetsPerVendorCountAPI,
     AssetsPerGatewayCountAPI,
