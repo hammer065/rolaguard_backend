@@ -50,7 +50,7 @@ def check_if_token_in_blacklist(decrypted_token):
 @jwt.user_claims_loader
 def add_claims_to_access_token(user):
     return {
-        'user_roles_id': [user_role.to_json().get('user_role_id') for user_role in user.user_roles],
+        'user_roles_id': [user_role.user_role_id for user_role in user.user_roles],
         'organization_id': user.organization_id
     }
 
