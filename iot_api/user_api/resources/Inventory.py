@@ -180,7 +180,7 @@ class AssetsPerTagCountAPI(Resource):
             return abort(403, error='forbidden access')
         organization_id = user.organization_id
 
-        response = AssetRepository.count_per_tag(
+        counts = AssetRepository.count_per_tag(
             organization_id = organization_id,
             vendors = request.args.getlist('vendors[]'),
             gateway_ids = request.args.getlist('gateway_ids[]'),
@@ -188,4 +188,13 @@ class AssetsPerTagCountAPI(Resource):
             tag_ids = request.args.getlist('tag_ids[]'),
             asset_type = request.args.get('asset_type', default=None, type=str)
         )
+        response = [
+            {
+                'id' : tag_id,
+                'name' : tag['name'],
+                'color' : tag['color'],
+                'count' : tag['count']
+                }
+             for tag_id, tag in counts.items()
+             ]
         return response, 200

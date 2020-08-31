@@ -301,17 +301,16 @@ def count_per_tag(organization_id, vendors=None, gateway_ids=None,
         of assets.
     """
     # Base queries, one for devices and one for gateways
-    dev_query = db.session.query(Tag.id, Tag.name, func.count(distinct(Device.id))).\
+    dev_query = db.session.query(Tag.id, Tag.name, Tag.color, func.count(distinct(Device.id))).\
         select_from(Device).\
-        join(DeviceToTag).\
-        join(GatewayToDevice).\
-        group_by(Tag.id, Tag.name).\
+        join(DeviceToTag).join(Tag).\
+        group_by(Tag.id, Tag.name, Tag.color).\
         filter(Device.organization_id == organization_id)
 
-    gtw_query = db.session.query(Tag.id, Tag.name, func.count(distinct(Gateway.id))).\
+    gtw_query = db.session.query(Tag.id, Tag.name, Tag.color, func.count(distinct(Gateway.id))).\
         select_from(Gateway).\
-        join(GatewayToTag).\
-        group_by(Tag.id, Tag.name).\
+        join(GatewayToTag).join(Tag).\
+        group_by(Tag.id, Tag.name, Tag.color).\
         filter(Gateway.organization_id==organization_id)
 
     # If filtering parameters are given, add the respective where clauses to the queries
@@ -339,8 +338,9 @@ def count_per_tag(organization_id, vendors=None, gateway_ids=None,
         raise Exception("Invalid asset type parameter")
 
     # Join the results of the queries
-    counts = defaultdict(lambda: {'name' : None, 'count' : 0})
+    counts = defaultdict(lambda: {'name' : None, 'color' : None, 'count' : 0})
     for e in all_counts:
         counts[e[0]]['name'] = e[1]
-        counts[e[0]]['count'] += e[2]
-    return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
+        counts[e[0]]['color'] = e[2]
+        counts[e[0]]['count'] += e[3]
+    return counts
