@@ -949,8 +949,8 @@ class Login(Resource):
                 )
                 login_attempts.save_to_db()
 
-            access_token = create_access_token(identity=user.username)
-            refresh_token = create_refresh_token(identity=user.username)
+            access_token = create_access_token(identity=user)
+            refresh_token = create_refresh_token(identity=user)
 
             return {
                 "message": "Logged in as {}".format(user.username),

@@ -13,7 +13,16 @@ from iot_api.user_api import Error
 from collections import defaultdict
 
 
-def get_with(asset_id, asset_type):
+def get_with(asset_id, asset_type, organization_id=None):
+    """ Gets an asset from database
+    Request parameters:
+        - asset_id: database id of the asset
+        - asset_type: type of the requested asset, can be "device" or "gateway".
+        - organization_id (optional): when given, asserts that received organization
+            matchs the asset's organization
+    Returns:
+        - Model object of requested asset
+    """
     if asset_type=="device":
         asset = db.session.query(Device).\
             filter(Device.id == asset_id).\
@@ -23,9 +32,11 @@ def get_with(asset_id, asset_type):
             filter(Gateway.id == asset_id).\
             first()
     else:
-        raise Exception(f"Invalid asset_type: {asset_type}")
+        raise Error.BadRequest(f"Invalid asset_type: {asset_type}. Valid values are \'device\' or \'gateway\'")
     if not asset:
-        raise Exception(f"Asset with id {asset_id} and type {asset_type} not found")
+        raise Error.NotFound(f"Asset with id {asset_id} and type {asset_type} not found")
+    if organization_id and asset.organization_id != organization_id:
+        raise Error.Forbidden("User's organization's different from asset organization")
     return asset
 
 

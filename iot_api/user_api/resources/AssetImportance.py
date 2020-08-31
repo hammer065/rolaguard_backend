@@ -37,9 +37,8 @@ class AssetImportanceAPI(Resource):
             asset = AssetRepository.get_with(
                 asset_id=int(asset_id["asset_id"]),
                 asset_type=asset_id["asset_type"],
+                organization_id=organization_id
             )
-            if asset.organization_id != organization_id:
-                raise Exception(f'The asset is not from the organization')
             asset.importance = importance
         db.session.commit()
         return {"message": "Assets importance set"}, 200
