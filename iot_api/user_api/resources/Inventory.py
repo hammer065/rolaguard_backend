@@ -9,8 +9,8 @@ log = iot_logging.getLogger(__name__)
 
 from iot_api.user_api.model import User, Alert, Quarantine, GatewayToDevice
 from iot_api.user_api.Utils import is_system
+from iot_api.user_api.JwtUtils import admin_regular_allowed
 from iot_api.user_api.repository import AssetRepository, TagRepository
-from iot_api.JwtUtils import not_system_and_jwt_required
 
 class AssetInformationAPI(Resource):
     """ Endpoint to get information about an asset of a given type
@@ -20,7 +20,7 @@ class AssetInformationAPI(Resource):
     Returns:
         - JSON with requested asset. See Device/Gateway model's to_asset_json method for further details
     """
-    @not_system_and_jwt_required
+    @admin_regular_allowed
     def get(self, asset_type, asset_id):
         organization_id = get_jwt_claims().get('organization_id')
         asset = AssetRepository.get_with(asset_id, asset_type,  organization_id)
@@ -57,7 +57,7 @@ class AssetAlertsAPI(Resource):
     Returns:
         - paginated list of alerts. see Alert model's to_json method to further details
     """
-    @not_system_and_jwt_required
+    @admin_regular_allowed
     def get(self, asset_type, asset_id):
         organization_id = get_jwt_claims().get("organization_id")
         since = request.args.get('created_at[gte]')
@@ -104,30 +104,32 @@ class AssetAlertsAPI(Resource):
 
         asset = AssetRepository.get_with(asset_id, asset_type, organization_id)
 
-        results = (Alert.find_by_device_id(
-            device_id=asset.id,
-            organization_id=organization_id,
-            since=since,
-            until=until,
-            types=types,
-            resolved=resolved,
-            risks=risks,
-            order_by=order_by,
-            page=page,
-            size=size
-        ) if asset_type == 'device' 
-        else Alert.find_by_gateway_id(
-            gateway_id=asset.id,
-            organization_id=organization_id,
-            since=since,
-            until=until,
-            types=types,
-            resolved=resolved,
-            risks=risks,
-            order_by=order_by,
-            page=page,
-            size=size
-        ))
+        if asset_type == 'device': 
+            results = Alert.find_by_device_id(
+                device_id=asset.id,
+                organization_id=organization_id,
+                since=since,
+                until=until,
+                types=types,
+                resolved=resolved,
+                risks=risks,
+                order_by=order_by,
+                page=page,
+                size=size
+            )
+        else:
+            results = Alert.find_by_gateway_id(
+                gateway_id=asset.id,
+                organization_id=organization_id,
+                since=since,
+                until=until,
+                types=types,
+                resolved=resolved,
+                risks=risks,
+                order_by=order_by,
+                page=page,
+                size=size
+            )
 
         alerts = [alert.to_json() for alert in results.items]
         response = {
@@ -161,7 +163,7 @@ class AssetIssuesAPI(Resource):
     Returns:
         - paginated list of issues. see Quarantine model's to_json method to further details
     """
-    @not_system_and_jwt_required
+    @admin_regular_allowed
     def get(self, asset_type, asset_id):
         organization_id = get_jwt_claims().get("organization_id")
         since = request.args.get('created_at[gte]')
@@ -204,32 +206,32 @@ class AssetIssuesAPI(Resource):
 
         asset = AssetRepository.get_with(asset_id, asset_type, organization_id)
         
-        # for a device, return all the issues that this device has created
-        # for a gateway, return all the issues that the devices connected to this gateway have created
-        results = (Quarantine.find(
-            organization_id=organization_id,
-            since=since,
-            until=until,
-            alert_types=alert_types,
-            devices=[asset.id],
-            risks=risks,
-            data_collectors=None,
-            order_by=order_by,
-            page=page,
-            size=size
-        ) if asset_type == 'device'
-        else Quarantine.find(
-            organization_id=organization_id,
-            since=since,
-            until=until,
-            alert_types=alert_types,
-            devices=[entry.device_id for entry in GatewayToDevice.find_by_gateway_id(asset.id)],
-            risks=risks,
-            data_collectors=None,
-            order_by=order_by,
-            page=page,
-            size=size
-        ))
+        if asset_type == 'device': # for a device, return all the issues that this device has created
+            results = Quarantine.find(
+                organization_id=organization_id,
+                since=since,
+                until=until,
+                alert_types=alert_types,
+                devices=[asset.id],
+                risks=risks,
+                data_collectors=None,
+                order_by=order_by,
+                page=page,
+                size=size
+            ) 
+        else: # for a gateway, return all the issues that the devices connected to this gateway have created
+            results = Quarantine.find(
+                organization_id=organization_id,
+                since=since,
+                until=until,
+                alert_types=alert_types,
+                devices=[entry.device_id for entry in GatewayToDevice.find_by_gateway_id(asset.id)],
+                risks=risks,
+                data_collectors=None,
+                order_by=order_by,
+                page=page,
+                size=size
+            )
 
         issues = [issue.to_list_json() for issue in results.items]
         response = {
