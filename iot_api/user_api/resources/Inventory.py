@@ -38,15 +38,15 @@ class AssetAlertsAPI(Resource):
     Request parameters:
         - asset_type: type of asset (can be device or gateway).
         - asset_id: database id of the asset
-        - since: for date filtering, if specified, returns alerts created AFTER this date.
+        - created_at[gte]: for date filtering, if specified, returns alerts created AFTER this date.
             if is not specified, no date filtering is applied
-        - until: for date filtering, if specified, returns alerts created BEFORE this date
+        - created_at[lte]: for date filtering, if specified, returns alerts created BEFORE this date
             if is not specified, no date filtering is applied
-        - types: include alerts of types specified in this list
+        - type: include alerts of types specified in this list
             if is not specified, no type filtering is applied
         - resolved: filter by status of alert's resolution. 
             if is not specified, no filter is applied
-        - risks: include only alerts whose associated risk's enumerated in this list
+        - risk: include only alerts whose associated risk's enumerated in this list
             if is not specified, no risk filtering is applied
         - order_by: ordering criteria, list composed by
             order_field: database field 
@@ -144,15 +144,15 @@ class AssetIssuesAPI(Resource):
     Request parameters:
         - asset_type: type of asset (can be device or gateway).
         - asset_id: database id of the asset
-        - since: for date filtering, if specified, returns alerts created AFTER this date.
+        - created_at[gte]: for date filtering, if specified, returns alerts created AFTER this date.
             if is not specified, no date filtering is applied
-        - until: for date filtering, if specified, returns alerts created BEFORE this date
+        - created_at[lte]: for date filtering, if specified, returns alerts created BEFORE this date
             if is not specified, no date filtering is applied
-        - alert_types: include alerts of types specified in this list
+        - type: include alerts of types specified in this list
             if is not specified, no type filtering is applied
         - resolved: filter by status of alert's resolution. 
             if is not specified, no filter is applied
-        - risks: include only alerts whose associated risk's enumerated in this list
+        - risk: include only alerts whose associated risk's enumerated in this list
             if is not specified, no risk filtering is applied
         - order_by: ordering criteria, list composed by
             order_field: database field 
@@ -168,7 +168,7 @@ class AssetIssuesAPI(Resource):
         organization_id = get_jwt_claims().get("organization_id")
         since = request.args.get('created_at[gte]')
         until = request.args.get('created_at[lte]')
-        alert_types = request.args.getlist('alerttype[]')
+        alert_types = request.args.getlist('type[]')
         risks = request.args.getlist('risk[]')
         order_by = request.args.getlist('order_by[]')
         page = request.args.get('page')
