@@ -223,7 +223,7 @@ def count_per_signal_strength(organization_id, asset_type=None, asset_status=Non
     """
 
     # For every 0 <= i <= 5, range_names[i] includes signal strength values in the range [L,R) = [range_limits[i], range_limits[i+1])
-    range_limits = [-1000, -130, -120, -110, -100, -75, 1]
+    range_limits = [-10000, -120, -110, -100, -75, -50, 1]
     range_names = ['Disconnected', 'Unusable', 'Weak', 'Okay', 'Great', 'Excellent']
     dev_query = db.session.query()
     gtw_query = db.session.query()
