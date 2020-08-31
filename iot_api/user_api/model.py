@@ -1463,7 +1463,7 @@ class Quarantine(db.Model):
             query = query.filter(cls.since <= until)
 
         if alert_types and len(alert_types) > 0:
-            query = query.filter(AlertType.code.in_(alert_types))
+            query = query.filter(AlertType.id.in_(alert_types))
 
         if risks and len(risks) > 0:
             query = query.filter(AlertType.risk.in_(risks))

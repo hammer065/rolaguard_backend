@@ -2,12 +2,12 @@ import calendar
 import dateutil.parser as dp
 from flask import request, abort
 from flask_restful import Resource
-from flask_jwt_extended import jwt_required, get_jwt_claims
+from flask_jwt_extended import jwt_required, get_jwt_claims, get_jwt_identity
 
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
-from iot_api.user_api.model import User, Alert, Quarantine, GatewayToDevice
+from iot_api.user_api.model import User, Alert, Quarantine, GatewayToDevice, AlertType
 from iot_api.user_api.Utils import is_system
 from iot_api.user_api.JwtUtils import admin_regular_allowed
 from iot_api.user_api.repository import AssetRepository, TagRepository
@@ -211,7 +211,7 @@ class AssetIssuesAPI(Resource):
                 organization_id=organization_id,
                 since=since,
                 until=until,
-                alert_types=alert_types,
+                alert_types=[AlertType.find_one(alert_type_code).id for alert_type_code in alert_types],
                 devices=[asset.id],
                 risks=risks,
                 data_collectors=None,
@@ -224,7 +224,7 @@ class AssetIssuesAPI(Resource):
                 organization_id=organization_id,
                 since=since,
                 until=until,
-                alert_types=alert_types,
+                alert_types=[AlertType.find_one(alert_type_code).id for alert_type_code in alert_types],
                 devices=[entry.device_id for entry in GatewayToDevice.find_by_gateway_id(asset.id)],
                 risks=risks,
                 data_collectors=None,
