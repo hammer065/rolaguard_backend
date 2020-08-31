@@ -177,7 +177,7 @@ class AssetIssuesAPI(Resource):
                 since = dp.parse(since)
             except Exception:
                 raise Error.BadRequest('no valid created_at[gte] value')
-        log.debug(since)
+
         if until:
             try:
                 until = dp.parse(until)
@@ -204,7 +204,7 @@ class AssetIssuesAPI(Resource):
 
         asset = AssetRepository.get_with(asset_id, asset_type, organization_id)
         
-        # for a device, return all the issues that this device created
+        # for a device, return all the issues that this device has created
         # for a gateway, return all the issues that the devices connected to this gateway have created
         results = (Quarantine.find(
             organization_id=organization_id,
