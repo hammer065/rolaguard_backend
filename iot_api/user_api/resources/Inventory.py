@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required, get_jwt_claims, get_jwt_identity
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
-from iot_api.user_api.model import User, Alert, Quarantine, GatewayToDevice, AlertType
+from iot_api.user_api.model import User, Alert, Quarantine, GatewayToDevice, AlertType, AssetImportance
 from iot_api.user_api.Utils import is_system
 from iot_api.user_api.JwtUtils import admin_regular_allowed
 from iot_api.user_api.repository import AssetRepository, TagRepository
@@ -252,16 +252,13 @@ class AssetsListAPI(Resource):
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+        - importances[]: for filtering, list only the assets that have ANY of these importances
     Returns:
         - JSON with list of assets (see code for more details about the fields).
     """
-    @jwt_required
+    @admin_regular_allowed
     def get(self):
-        user = User.find_by_username(get_jwt_identity())
-        if not user or is_system(user.id):
-            return abort(403, error='forbidden access')
-
-        organization_id = user.organization_id
+        organization_id = get_jwt_claims().get('organization_id') 
         page = request.args.get('page', default=1, type=int)
         size = request.args.get('size', default=20, type=int)
 
@@ -272,7 +269,8 @@ class AssetsListAPI(Resource):
             gateway_ids=request.args.getlist('gateway_ids[]'),
             data_collector_ids=request.args.getlist('data_collector_ids[]'),
             tag_ids=request.args.getlist('tag_ids[]'),
-            asset_type=request.args.get('asset_type', type=str)
+            asset_type=request.args.get('asset_type', type=str),
+            importances = request.args.getlist('importances[]', type=AssetImportance)
         )
 
         devices = [{
@@ -310,16 +308,13 @@ class AssetsPerVendorCountAPI(Resource):
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+        - importances[]: for filtering, list only the assets that have ANY of these importances
     Returns:
         - A list of JSONs, where each JSON has three fields: id, name, count.
     """
-    @jwt_required
+    @admin_regular_allowed
     def get(self):
-        user_identity = get_jwt_identity()
-        user = User.find_by_username(user_identity)
-        if not user or is_system(user.id):
-            return abort(403, error='forbidden access')
-        organization_id = user.organization_id
+        organization_id = get_jwt_claims().get('organization_id')
 
         response = AssetRepository.count_per_vendor(
             organization_id = organization_id,
@@ -327,7 +322,8 @@ class AssetsPerVendorCountAPI(Resource):
             gateway_ids = request.args.getlist('gateway_ids[]'),
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
-            asset_type = request.args.get('asset_type', default=None, type=str)
+            asset_type = request.args.get('asset_type', default=None, type=str),
+            importances = request.args.getlist('importances[]', type=AssetImportance)
         )
         return response, 200
 
@@ -339,16 +335,13 @@ class AssetsPerGatewayCountAPI(Resource):
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+        - importances[]: for filtering, list only the assets that have ANY of these importances
     Returns:
         - A list of JSONs, where each JSON has three fields: id, name, count.
     """
-    @jwt_required
+    @admin_regular_allowed
     def get(self):
-        user_identity = get_jwt_identity()
-        user = User.find_by_username(user_identity)
-        if not user or is_system(user.id):
-            return abort(403, error='forbidden access')
-        organization_id = user.organization_id
+        organization_id = get_jwt_claims().get('organization_id')
 
         response = AssetRepository.count_per_gateway(
             organization_id = organization_id,
@@ -356,7 +349,8 @@ class AssetsPerGatewayCountAPI(Resource):
             gateway_ids = request.args.getlist('gateway_ids[]'),
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
-            asset_type = request.args.get('asset_type', default=None, type=str)
+            asset_type = request.args.get('asset_type', default=None, type=str),
+            importances = request.args.getlist('importances[]', type=AssetImportance)
         )
         return response, 200
             
@@ -369,16 +363,13 @@ class AssetsPerDatacollectorCountAPI(Resource):
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+        - importances[]: for filtering, list only the assets that have ANY of these importances
     Returns:
         - A list of JSONs, where each JSON has three fields: id, name, count.
     """
-    @jwt_required
+    @admin_regular_allowed
     def get(self):
-        user_identity = get_jwt_identity()
-        user = User.find_by_username(user_identity)
-        if not user or is_system(user.id):
-            return abort(403, error='forbidden access')
-        organization_id = user.organization_id
+        organization_id = get_jwt_claims().get('organization_id')
 
         response = AssetRepository.count_per_datacollector(
             organization_id = organization_id,
@@ -386,7 +377,8 @@ class AssetsPerDatacollectorCountAPI(Resource):
             gateway_ids = request.args.getlist('gateway_ids[]'),
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
-            asset_type = request.args.get('asset_type', default=None, type=str)
+            asset_type = request.args.get('asset_type', default=None, type=str),
+            importances = request.args.getlist('importances[]', type=AssetImportance)
         )
         return response, 200
 
@@ -399,16 +391,13 @@ class AssetsPerTagCountAPI(Resource):
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+        - importances[]: for filtering, list only the assets that have ANY of these importances
     Returns:
         - A list of JSONs, where each JSON has three fields: id, name, count.
     """
-    @jwt_required
+    @admin_regular_allowed
     def get(self):
-        user_identity = get_jwt_identity()
-        user = User.find_by_username(user_identity)
-        if not user or is_system(user.id):
-            return abort(403, error='forbidden access')
-        organization_id = user.organization_id
+        organization_id = get_jwt_claims().get('organization_id')
 
         counts = AssetRepository.count_per_tag(
             organization_id = organization_id,
@@ -416,7 +405,8 @@ class AssetsPerTagCountAPI(Resource):
             gateway_ids = request.args.getlist('gateway_ids[]'),
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
-            asset_type = request.args.get('asset_type', default=None, type=str)
+            asset_type = request.args.get('asset_type', default=None, type=str),
+            importances = request.args.getlist('importances[]', type=AssetImportance)
         )
         response = [
             {
@@ -427,4 +417,38 @@ class AssetsPerTagCountAPI(Resource):
                 }
              for tag_id, tag in counts.items()
              ]
+        return response, 200
+
+class AssetsPerImportanceCountAPI(Resource):
+    """ Endpoint to count assets (devices+gateways) grouped by its importance.
+    Request parameters: 
+        - vendors[]: for filtering, list only assets that have ANY one of these vendors.
+        - gateway_ids[]: for filtering, list only the assets connected to ANY one of these gateways.
+        - data_collector_ids[]: for filtering, list only the assets related to ANY of these data collectors.
+        - tag_ids[]: for filtering, list only the assets that have ALL these tags.
+        - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+        - importances[]: for filtering, list only the assets that have ANY of these importances
+    Returns:
+        - A list of JSONs, where each JSON has three fields: id, name, count.
+    """
+    @admin_regular_allowed
+    def get(self):
+        organization_id = get_jwt_claims().get('organization_id')
+        vendors = request.args.getlist('vendors[]')
+        gateway_ids = request.args.getlist('gateway_ids[]')
+        data_collector_ids = request.args.getlist('data_collector_ids[]')
+        tag_ids = request.args.getlist('tag_ids[]')
+        asset_type = request.args.get('asset_type', default=None, type=str)
+        importances = request.args.getlist('importances[]', type=AssetImportance)
+
+        response = AssetRepository.count_per_importance(
+            organization_id=organization_id,
+            vendors=vendors,
+            gateway_ids=gateway_ids,
+            data_collector_ids=data_collector_ids,
+            tag_ids=tag_ids,
+            asset_type=asset_type,
+            importances=importances
+        )
+
         return response, 200

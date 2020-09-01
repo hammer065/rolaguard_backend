@@ -7,7 +7,8 @@ from .Inventory import (
     AssetsPerVendorCountAPI,
     AssetsPerGatewayCountAPI,
     AssetsPerDatacollectorCountAPI,
-    AssetsPerTagCountAPI
+    AssetsPerTagCountAPI,
+    AssetsPerImportanceCountAPI
     )
 from .Tag import (
     TagAPI,

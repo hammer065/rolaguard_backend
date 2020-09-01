@@ -42,7 +42,7 @@ def get_with(asset_id, asset_type, organization_id=None):
 
 def list_all(organization_id, page=None, size=None,
              vendors=None, gateway_ids=None, data_collector_ids=None,
-             tag_ids=None, asset_type=None):
+             tag_ids=None, asset_type=None, importances=None):
     """ List assets of an organization.
     Parameters:
         - organization_id: which organization.
@@ -53,6 +53,7 @@ def list_all(organization_id, page=None, size=None,
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+        - importances: for filtering, list only the assets that have ANY of these importances
     Returns:
         - A dict with the list of assets.
     """
@@ -106,6 +107,9 @@ def list_all(organization_id, page=None, size=None,
     if tag_ids:
         dev_query = dev_query.filter(Device.id.in_(DeviceRepository.query_ids_with(tag_ids=tag_ids)))
         gtw_query = gtw_query.filter(Gateway.id.in_(GatewayRepository.query_ids_with(tag_ids=tag_ids)))
+    if importances:
+        dev_query = dev_query.filter(Device.importance.in_(importances))
+        gtw_query = gtw_query.filter(Gateway.importance.in_(importances))
 
     # Filter by device type if the parameter was given, else, make a union with queries.
     if asset_type is None:
@@ -125,7 +129,7 @@ def list_all(organization_id, page=None, size=None,
 
 
 def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
-                     data_collector_ids=None, tag_ids=None, asset_type=None):
+                     data_collector_ids=None, tag_ids=None, asset_type=None, importances=None):
     """ Count the number of assets per vendor.
     Parameters:
         - organization_id: which organization.
@@ -134,6 +138,7 @@ def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+        - importances: for filtering, list only the assets that have ANY of these importances
     Returns:
         - List of dicts, where each dict has the vendor id and name and the count
         of assets.
@@ -161,6 +166,9 @@ def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
     if tag_ids:
         dev_query = dev_query.filter(Device.id.in_(DeviceRepository.query_ids_with(tag_ids=tag_ids)))
         gtw_query = gtw_query.filter(Gateway.id.in_(GatewayRepository.query_ids_with(tag_ids=tag_ids)))
+    if importances:
+        dev_query = dev_query.filter(Device.importance.in_(importances))
+        gtw_query = gtw_query.filter(Gateway.importance.in_(importances))
 
     # Execute the queries, filtering by asset type
     if asset_type is None:
@@ -180,7 +188,7 @@ def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
 
 
 def count_per_gateway(organization_id, vendors=None, gateway_ids=None,
-                      data_collector_ids=None, tag_ids=None, asset_type=None):
+                      data_collector_ids=None, tag_ids=None, asset_type=None, importances=None):
     """ Count the number of assets per gateway.
     Parameters:
         - organization_id: which organization.
@@ -189,6 +197,7 @@ def count_per_gateway(organization_id, vendors=None, gateway_ids=None,
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+        - importances: for filtering, list only the assets that have ANY of these importances
     Returns:
         - List of dicts, where each dict has the gateway id and name and the count
         of assets.
@@ -218,6 +227,9 @@ def count_per_gateway(organization_id, vendors=None, gateway_ids=None,
     if tag_ids:
         dev_query = dev_query.filter(Device.id.in_(DeviceRepository.query_ids_with(tag_ids=tag_ids)))
         gtw_query = gtw_query.filter(Gateway.id.in_(GatewayRepository.query_ids_with(tag_ids=tag_ids)))
+    if importances:
+        dev_query = dev_query.filter(Device.importance.in_(importances))
+        gtw_query = gtw_query.filter(Gateway.importance.in_(importances))
     
     # Execute the queries, filtering by asset type
     if asset_type is None:
@@ -238,7 +250,7 @@ def count_per_gateway(organization_id, vendors=None, gateway_ids=None,
 
 
 def count_per_datacollector(organization_id, vendors=None, gateway_ids=None,
-                            data_collector_ids=None, tag_ids=None, asset_type=None):
+                            data_collector_ids=None, tag_ids=None, asset_type=None, importances=None):
     """ Count the number of assets per data collector.
     Parameters:
         - organization_id: which organization.
@@ -247,6 +259,7 @@ def count_per_datacollector(organization_id, vendors=None, gateway_ids=None,
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+        - importances: for filtering, list only the assets that have ANY of these importances
     Returns:
         - List of dicts, where each dict has the data_collector id and name and the count
         of assets.
@@ -278,6 +291,9 @@ def count_per_datacollector(organization_id, vendors=None, gateway_ids=None,
     if tag_ids:
         dev_query = dev_query.filter(Device.id.in_(DeviceRepository.query_ids_with(tag_ids=tag_ids)))
         gtw_query = gtw_query.filter(Gateway.id.in_(GatewayRepository.query_ids_with(tag_ids=tag_ids)))
+    if importances:
+        dev_query = dev_query.filter(Device.importance.in_(importances))
+        gtw_query = gtw_query.filter(Gateway.importance.in_(importances))
 
     # Execute the queries, filtering by asset type
     if asset_type is None:
@@ -298,7 +314,7 @@ def count_per_datacollector(organization_id, vendors=None, gateway_ids=None,
 
 
 def count_per_tag(organization_id, vendors=None, gateway_ids=None,
-                  data_collector_ids=None, tag_ids=None, asset_type=None):
+                  data_collector_ids=None, tag_ids=None, asset_type=None, importances=None):
     """ Count the number of assets per tag.
     Parameters:
         - organization_id: which organization.
@@ -307,6 +323,7 @@ def count_per_tag(organization_id, vendors=None, gateway_ids=None,
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+        - importances: for filtering, list only the assets that have ANY of these importances
     Returns:
         - List of dicts, where each dict has the tag id and name and the count
         of assets.
@@ -337,6 +354,9 @@ def count_per_tag(organization_id, vendors=None, gateway_ids=None,
     if tag_ids:
         dev_query = dev_query.filter(Device.id.in_(DeviceRepository.query_ids_with(tag_ids=tag_ids)))
         gtw_query = gtw_query.filter(Gateway.id.in_(GatewayRepository.query_ids_with(tag_ids=tag_ids)))
+    if importances:
+        dev_query = dev_query.filter(Device.importance.in_(importances))
+        gtw_query = gtw_query.filter(Gateway.importance.in_(importances))
 
     # Execute the queries, filtering by asset type
     if asset_type is None:
@@ -355,3 +375,61 @@ def count_per_tag(organization_id, vendors=None, gateway_ids=None,
         counts[e[0]]['color'] = e[2]
         counts[e[0]]['count'] += e[3]
     return counts
+
+def count_per_importance(organization_id, vendors=None, gateway_ids=None,
+                        data_collector_ids=None, tag_ids=None, asset_type=None, importances=None):
+    """ Count the number of assets per importance.
+    Parameters:
+        - organization_id: which organization.
+        - vendors[]: for filtering, lists only assets that have ANY one of these vendors.
+        - gateway_ids[]: for filtering, list only the assets connected to ANY one of these gateways.
+        - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
+        - tag_ids[]: for filtering, list only the assest that have ALL these tags.
+        - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+        - importances: for filtering, list only the assets that have ANY of these importances
+    Returns:
+        - A list of dicts, where each dict has three fields: id, name, count.
+    """
+    # Build two queries, one for devices and one for gateways
+    dev_query = db.session.query(Device.importance, func.count(distinct(Device.id))).\
+        join(GatewayToDevice).\
+        group_by(Device.importance).\
+        filter(Device.organization_id==organization_id)
+
+    gtw_query = db.session.query(Gateway.importance, func.count(distinct(Gateway.id))).\
+        group_by(Gateway.importance).\
+        filter(Gateway.organization_id==organization_id)
+
+    # If filter arguments were given, add the respective where clauses to the queries
+    if vendors:
+        dev_query = dev_query.filter(Device.vendor.in_(vendors))
+        gtw_query = gtw_query.filter(Gateway.vendor.in_(vendors))
+    if gateway_ids:
+        dev_query = dev_query.filter(GatewayToDevice.gateway_id.in_(gateway_ids))
+        gtw_query = gtw_query.filter(Gateway.id.in_(gateway_ids))
+    if data_collector_ids:
+        dev_query = dev_query.filter(Device.data_collector_id.in_(data_collector_ids))
+        gtw_query = gtw_query.filter(Gateway.data_collector_id.in_(data_collector_ids))
+    if tag_ids:
+        dev_query = dev_query.filter(Device.id.in_(DeviceRepository.query_ids_with(tag_ids=tag_ids)))
+        gtw_query = gtw_query.filter(Gateway.id.in_(GatewayRepository.query_ids_with(tag_ids=tag_ids)))
+    if importances:
+        dev_query = dev_query.filter(Device.importance.in_(importances))
+        gtw_query = gtw_query.filter(Gateway.importance.in_(importances))
+
+    # Execute the queries, filtering by asset type
+    if asset_type is None:
+        all_counts = dev_query.all() + gtw_query.all()
+    elif asset_type == "device":
+        all_counts = dev_query.all()
+    elif asset_type == "gateway":
+        all_counts = gtw_query.all()
+    else:
+        raise Error.BadRequest(f"Invalid asset_type: {asset_type}. Valid values are \'device\' or \'gateway\'")
+
+    counts = defaultdict(lambda: {'name' : None, 'count' : 0})
+    for entry in all_counts:
+        counts[entry[0].value]['name'] = entry[0].value
+        counts[entry[0].value]['count'] += entry[1]
+
+    return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]

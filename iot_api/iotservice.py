@@ -144,6 +144,7 @@ api.add_resource(res.AssetsPerVendorCountAPI, '/api/v1.0/inventory/count/vendor'
 api.add_resource(res.AssetsPerGatewayCountAPI, '/api/v1.0/inventory/count/gateway')
 api.add_resource(res.AssetsPerDatacollectorCountAPI, '/api/v1.0/inventory/count/data_collector')
 api.add_resource(res.AssetsPerTagCountAPI, '/api/v1.0/inventory/count/tag')
+api.add_resource(res.AssetsPerImportanceCountAPI, '/api/v1.0/inventory/count/importance')
 
 # Asset importance
 api.add_resource(res.AssetImportanceAPI, '/api/v1.0/inventory/set_importance')
