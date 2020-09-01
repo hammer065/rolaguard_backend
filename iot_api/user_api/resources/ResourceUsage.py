@@ -183,7 +183,7 @@ class ResourceUsagePerSignalStrengthCountAPI(Resource):
                 'min_signal_strength': int,
                 'max_signal_strength': int
             },
-            'name': 'Disconnected'/'Unusable'/'Weak'/'Okay'/'Great'/'Excellent',
+            'name': 'Unusable'/'Very weak'/'Weak'/'Okay'/'Great'/'Excellent',
             'count': int
     """
     @jwt_required
