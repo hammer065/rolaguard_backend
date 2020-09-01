@@ -538,7 +538,7 @@ class Alert(db.Model):
         parsed_user = self.resolved_by.to_short_info_json() if self.resolved_by else None
         return {
             'id': self.id,
-            'type': self.type,
+            'type': self.alert_type.to_json(),
             'created_at': "{}".format(self.created_at) if self.created_at else None,
             'packet_id': self.packet_id,
             'device_id': self.device_id,
@@ -1424,7 +1424,6 @@ class Quarantine(db.Model):
             'id': self.id,
             'organization_id': self.organization_id,
             'alert': self.alert.to_json(),
-            'alert_type': self.alert.alert_type.to_json(),
             'device_id': self.device_id,
             'data_collector_id': data_collector.id,
             'data_collector_name': data_collector.name,
