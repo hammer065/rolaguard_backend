@@ -171,8 +171,8 @@ class AssetIssuesAPI(Resource):
         alert_types = request.args.getlist('type[]')
         risks = request.args.getlist('risk[]')
         order_by = request.args.getlist('order_by[]')
-        page = request.args.get('page')
-        size = request.args.get('size')
+        page = request.args.get('page', default=1, type=int)
+        size = request.args.get('size', default=20, type=int)
 
         if since:
             try:
