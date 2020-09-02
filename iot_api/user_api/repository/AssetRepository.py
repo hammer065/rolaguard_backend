@@ -95,7 +95,10 @@ def list_all(organization_id, page=None, size=None,
             filter(Gateway.organization_id == organization_id)
 
     # If filter parameters were given, add the respective where clauses to the queries
-    if vendors:
+    if None in vendors:
+        dev_query = dev_query.filter(or_(Device.vendor.in_(vendors), Device.vendor.is_(None)))
+        gtw_query = gtw_query.filter(or_(Gateway.vendor.in_(vendors), Gateway.vendor.is_(None)))
+    elif vendors:
         dev_query = dev_query.filter(Device.vendor.in_(vendors))
         gtw_query = gtw_query.filter(Gateway.vendor.in_(vendors))
     if gateway_ids:
@@ -154,7 +157,10 @@ def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
         filter(Gateway.organization_id==organization_id)
 
     # If the filtering arguments are given, add the respective where clauses to the queries
-    if vendors:
+    if None in vendors:
+        dev_query = dev_query.filter(or_(Device.vendor.in_(vendors), Device.vendor.is_(None)))
+        gtw_query = gtw_query.filter(or_(Gateway.vendor.in_(vendors), Gateway.vendor.is_(None)))
+    elif vendors:
         dev_query = dev_query.filter(Device.vendor.in_(vendors))
         gtw_query = gtw_query.filter(Gateway.vendor.in_(vendors))
     if gateway_ids:
@@ -215,9 +221,12 @@ def count_per_gateway(organization_id, vendors=None, gateway_ids=None,
         filter(Gateway.organization_id==organization_id)
     
     # If the arguments are given, filter adding the respective where clause
-    if vendors:
-        dev_query = dev_query.filter(Device.vendor.in_(vendors)) 
-        gtw_query = gtw_query.filter(Gateway.vendor.in_(vendors)) 
+    if None in vendors:
+        dev_query = dev_query.filter(or_(Device.vendor.in_(vendors), Device.vendor.is_(None)))
+        gtw_query = gtw_query.filter(or_(Gateway.vendor.in_(vendors), Gateway.vendor.is_(None)))
+    elif vendors:
+        dev_query = dev_query.filter(Device.vendor.in_(vendors))
+        gtw_query = gtw_query.filter(Gateway.vendor.in_(vendors))
     if gateway_ids:
         dev_query = dev_query.filter(Gateway.id.in_(gateway_ids))
         gtw_query = gtw_query.filter(Gateway.id.in_(gateway_ids))
@@ -279,7 +288,10 @@ def count_per_datacollector(organization_id, vendors=None, gateway_ids=None,
         filter(DataCollector.organization_id==organization_id)
 
     # If filtering parameters are given, add the respective where clauses to the queries
-    if vendors:
+    if None in vendors:
+        dev_query = dev_query.filter(or_(Device.vendor.in_(vendors), Device.vendor.is_(None)))
+        gtw_query = gtw_query.filter(or_(Gateway.vendor.in_(vendors), Gateway.vendor.is_(None)))
+    elif vendors:
         dev_query = dev_query.filter(Device.vendor.in_(vendors))
         gtw_query = gtw_query.filter(Gateway.vendor.in_(vendors))
     if gateway_ids:
@@ -342,7 +354,10 @@ def count_per_tag(organization_id, vendors=None, gateway_ids=None,
         filter(Gateway.organization_id==organization_id)
 
     # If filtering parameters are given, add the respective where clauses to the queries
-    if vendors:
+    if None in vendors:
+        dev_query = dev_query.filter(or_(Device.vendor.in_(vendors), Device.vendor.is_(None)))
+        gtw_query = gtw_query.filter(or_(Gateway.vendor.in_(vendors), Gateway.vendor.is_(None)))
+    elif vendors:
         dev_query = dev_query.filter(Device.vendor.in_(vendors))
         gtw_query = gtw_query.filter(Gateway.vendor.in_(vendors))
     if gateway_ids:
@@ -401,7 +416,10 @@ def count_per_importance(organization_id, vendors=None, gateway_ids=None,
         filter(Gateway.organization_id==organization_id)
 
     # If filter arguments were given, add the respective where clauses to the queries
-    if vendors:
+    if None in vendors:
+        dev_query = dev_query.filter(or_(Device.vendor.in_(vendors), Device.vendor.is_(None)))
+        gtw_query = gtw_query.filter(or_(Gateway.vendor.in_(vendors), Gateway.vendor.is_(None)))
+    elif vendors:
         dev_query = dev_query.filter(Device.vendor.in_(vendors))
         gtw_query = gtw_query.filter(Gateway.vendor.in_(vendors))
     if gateway_ids:

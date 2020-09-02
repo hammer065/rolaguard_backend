@@ -265,7 +265,7 @@ class AssetsListAPI(Resource):
         results = AssetRepository.list_all(
             organization_id=organization_id,
             page=page, size=size,
-            vendors=request.args.getlist('vendors[]'),
+            vendors=list(map(lambda x: x if x != 'null' else None, request.args.getlist('vendors[]'))),
             gateway_ids=request.args.getlist('gateway_ids[]'),
             data_collector_ids=request.args.getlist('data_collector_ids[]'),
             tag_ids=request.args.getlist('tag_ids[]'),
@@ -318,7 +318,7 @@ class AssetsPerVendorCountAPI(Resource):
 
         response = AssetRepository.count_per_vendor(
             organization_id = organization_id,
-            vendors = request.args.getlist('vendors[]'),
+            vendors = list(map(lambda x: x if x != 'null' else None, request.args.getlist('vendors[]'))),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
@@ -345,7 +345,7 @@ class AssetsPerGatewayCountAPI(Resource):
 
         response = AssetRepository.count_per_gateway(
             organization_id = organization_id,
-            vendors = request.args.getlist('vendors[]'),
+            vendors = list(map(lambda x: x if x != 'null' else None, request.args.getlist('vendors[]'))),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
@@ -373,7 +373,7 @@ class AssetsPerDatacollectorCountAPI(Resource):
 
         response = AssetRepository.count_per_datacollector(
             organization_id = organization_id,
-            vendors = request.args.getlist('vendors[]'),
+            vendors = list(map(lambda x: x if x != 'null' else None, request.args.getlist('vendors[]'))),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
@@ -401,7 +401,7 @@ class AssetsPerTagCountAPI(Resource):
 
         counts = AssetRepository.count_per_tag(
             organization_id = organization_id,
-            vendors = request.args.getlist('vendors[]'),
+            vendors = list(map(lambda x: x if x != 'null' else None, request.args.getlist('vendors[]'))),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
@@ -434,7 +434,7 @@ class AssetsPerImportanceCountAPI(Resource):
     @admin_regular_allowed
     def get(self):
         organization_id = get_jwt_claims().get('organization_id')
-        vendors = request.args.getlist('vendors[]')
+        vendors = list(map(lambda x: x if x != 'null' else None, request.args.getlist('vendors[]')))
         gateway_ids = request.args.getlist('gateway_ids[]')
         data_collector_ids = request.args.getlist('data_collector_ids[]')
         tag_ids = request.args.getlist('tag_ids[]')
