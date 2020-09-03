@@ -34,6 +34,7 @@ from .policy import (
 )
 from .AppKeys import AppKeysAPI
 from .ResourceUsage import (
+    ResourceUsageInformationAPI,
     ResourceUsageListAPI,
     ResourceUsagePerStatusCountAPI,
     ResourceUsagePerGatewayCountAPI,

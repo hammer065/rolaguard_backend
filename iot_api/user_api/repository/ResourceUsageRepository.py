@@ -12,6 +12,63 @@ from iot_api.user_api import Error
 
 from collections import defaultdict
 
+def get_with(asset_id, asset_type, organization_id=None):
+    """ Gets an asset from database
+    Request parameters:
+        - asset_id: database id of the asset
+        - asset_type: type of the requested asset, can be "device" or "gateway".
+        - organization_id (optional): when given, asserts that received organization
+            matchs the asset's organization
+    Returns:
+        - Model object of requested asset
+    """
+    if asset_type=="device":
+        asset = db.session.query(
+            Device.id,
+            Device.organization_id,
+            Device.dev_eui.label('hex_id'),
+            expression.literal_column('\'Device\'').label('type'),
+            Device.name,
+            Device.app_name,
+            DataCollector.name.label('data_collector'),
+            Device.connected.label('connected'),
+            Device.last_activity,
+            Device.activity_freq,
+            Device.npackets_up,
+            Device.npackets_down,
+            Device.npackets_lost.label('packet_loss'),
+            Device.max_rssi
+            ).join(DataCollector).\
+                join(GatewayToDevice).\
+                filter(Device.id == asset_id).\
+                first()
+    elif asset_type=="gateway":
+        asset = db.session.query(
+            Gateway.id,
+            Gateway.organization_id,
+            Gateway.gw_hex_id.label('hex_id'),
+            expression.literal_column('\'Gateway\'').label('type'),
+            Gateway.name,
+            expression.null().label('app_name'),
+            DataCollector.name.label('data_collector'),
+            Gateway.connected.label('connected'),
+            Gateway.last_activity,
+            Gateway.activity_freq,
+            Gateway.npackets_up,
+            Gateway.npackets_down,
+            cast(expression.null(), Float).label('packet_loss'),
+            cast(expression.null(), Float).label('max_rssi')
+            ).join(DataCollector).\
+                filter(Gateway.id == asset_id).\
+                first()
+    else:
+        raise Error.BadRequest(f"Invalid asset_type: {asset_type}. Valid values are \'device\' or \'gateway\'")
+    if not asset:
+        raise Error.NotFound(f"Asset with id {asset_id} and type {asset_type} not found")
+    if organization_id and asset.organization_id != organization_id:
+        raise Error.Forbidden("User's organization's different from asset organization")
+    return asset
+
 def list_all(organization_id, page=None, size=None,
             asset_type=None, asset_status=None, gateway_ids=None,
             min_signal_strength=None, max_signal_strength=None,

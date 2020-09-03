@@ -158,6 +158,7 @@ api.add_resource(res.TagAssetsAPI, '/api/v1.0/tags/<int:tag_id>/assets')
 api.add_resource(res.AppKeysAPI, '/api/v1.0/app_keys')
 
 # Resource usage
+api.add_resource(res.ResourceUsageInformationAPI, '/api/v1.0/resource_usage/<asset_type>/<int:asset_id>')
 api.add_resource(res.ResourceUsageListAPI, '/api/v1.0/resource_usage/list')
 api.add_resource(res.ResourceUsagePerStatusCountAPI, '/api/v1.0/resource_usage/count/status')
 api.add_resource(res.ResourceUsagePerGatewayCountAPI, '/api/v1.0/resource_usage/count/gateway')

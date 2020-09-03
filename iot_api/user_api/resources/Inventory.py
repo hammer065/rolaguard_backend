@@ -2,7 +2,7 @@ import calendar
 import dateutil.parser as dp
 from flask import request, abort
 from flask_restful import Resource
-from flask_jwt_extended import jwt_required, get_jwt_claims, get_jwt_identity
+from flask_jwt_extended import get_jwt_claims
 
 import iot_logging
 log = iot_logging.getLogger(__name__)

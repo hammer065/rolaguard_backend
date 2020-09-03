@@ -1,6 +1,6 @@
 from flask import request
 from flask_restful import Resource
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import get_jwt_claims
 
 import iot_logging, calendar
 log = iot_logging.getLogger(__name__)
@@ -9,9 +9,54 @@ from collections import namedtuple
 
 from iot_api.user_api.model import User
 from iot_api.user_api.Utils import is_system
-from iot_api.user_api.repository import ResourceUsageRepository
+from iot_api.user_api.JwtUtils import admin_regular_allowed
+from iot_api.user_api.repository import ResourceUsageRepository, TagRepository
 from iot_api.user_api import Error
 
+class ResourceUsageInformationAPI(Resource):
+    """ Endpoint to get the resource usage of an asset of a given type
+    Request parameters:
+        - asset_type: type of requested asset (can be device or gateway).
+        - asset_id: database id of the asset
+    Returns:
+        - JSON with requested resource usage information.
+    """
+    @admin_regular_allowed
+    def get(self, asset_type, asset_id):
+        organization_id = get_jwt_claims().get('organization_id')
+        asset = ResourceUsageRepository.get_with(asset_id, asset_type,  organization_id)
+
+        PacketsInfo = namedtuple('PacketsInfo', ['up', 'down', 'lost'])
+        packet_counts = PacketsInfo(
+            asset.npackets_up,
+            asset.npackets_down,
+            int(round(asset.packet_loss * asset.npackets_up)) if asset.packet_loss is not None else 0,
+        )
+
+        uptime = asset.npackets_up * asset.activity_freq if asset.activity_freq else 0
+
+        response = {
+            'id': asset.id,
+            'hex_id': asset.hex_id,
+            'type': asset.type,
+            'name': asset.name,
+            'data_collector': asset.data_collector,
+            'app_name': asset.app_name,
+            'connected': asset.connected,
+            'last_activity': calendar.timegm(asset.last_activity.timetuple()),
+            'activity_freq': asset.activity_freq,
+            'packets_up': buildPacketsInfo(uptime, packet_counts.up, sum(list(packet_counts))),
+            'packets_down': buildPacketsInfo(uptime, packet_counts.down, sum(list(packet_counts))),
+            'packets_lost': buildPacketsInfo(uptime, packet_counts.lost, sum(list(packet_counts))) if asset.packet_loss is not None else None,
+            'max_rssi': asset.max_rssi,
+            'tags': [{
+                "id": tag.id,
+                "name": tag.name,
+                "color": tag.color
+            } for tag in TagRepository.list_asset_tags(asset_id, asset_type, organization_id)]
+        }
+
+        return response, 200
 
 class ResourceUsageListAPI(Resource):
     """ Endpoint to list assets (devices + gateways)
@@ -24,13 +69,9 @@ class ResourceUsageListAPI(Resource):
     Returns:
         - JSON with list of assets and their resource usage (see code for more details about the fields).
     """
-    @jwt_required
+    @admin_regular_allowed
     def get(self):
-        user = User.find_by_username(get_jwt_identity())
-        if not user or is_system(user.id):
-            raise Error.Forbidden()
-
-        organization_id = user.organization_id
+        organization_id = get_jwt_claims().get('organization_id')
         page = request.args.get('page', default=1, type=int)
         size = request.args.get('size', default=20, type=int)
 
@@ -108,13 +149,9 @@ class ResourceUsagePerStatusCountAPI(Resource):
     Returns:
         - A list of JSONs, where each JSON has three fields: id, name, count. (id = name = 'connected'/'disconnected')
     """
-    @jwt_required
+    @admin_regular_allowed
     def get(self):
-        user_identity = get_jwt_identity()
-        user = User.find_by_username(user_identity)
-        if not user or is_system(user.id):
-            raise Error.Forbidden()
-        organization_id = user.organization_id
+        organization_id = get_jwt_claims().get('organization_id')   
 
         groups = ResourceUsageRepository.count_per_status(
             organization_id = organization_id,
@@ -144,13 +181,9 @@ class ResourceUsagePerGatewayCountAPI(Resource):
     Returns:
         - A list of JSONs, where each JSON has three fields: id, name, count. (name = hex_id)
     """
-    @jwt_required
+    @admin_regular_allowed
     def get(self):
-        user_identity = get_jwt_identity()
-        user = User.find_by_username(user_identity)
-        if not user or is_system(user.id):
-            raise Error.Forbidden()
-        organization_id = user.organization_id
+        organization_id = get_jwt_claims().get('organization_id')
 
         groups = ResourceUsageRepository.count_per_gateway(
             organization_id = organization_id,
@@ -186,13 +219,9 @@ class ResourceUsagePerSignalStrengthCountAPI(Resource):
             'name': 'Unusable'/'Very weak'/'Weak'/'Okay'/'Great'/'Excellent',
             'count': int
     """
-    @jwt_required
+    @admin_regular_allowed
     def get(self):
-        user_identity = get_jwt_identity()
-        user = User.find_by_username(user_identity)
-        if not user or is_system(user.id):
-            raise Error.Forbidden()
-        organization_id = user.organization_id
+        organization_id = get_jwt_claims().get('organization_id')
 
         groups = ResourceUsageRepository.count_per_signal_strength(
             organization_id = organization_id,
@@ -235,13 +264,9 @@ class ResourceUsagePerPacketLossCountAPI(Resource):
             'name': '[0,10)'/'[10,20)'/.../'[80,90)'/'[90,100]',
             'count': int
     """
-    @jwt_required
+    @admin_regular_allowed
     def get(self):
-        user_identity = get_jwt_identity()
-        user = User.find_by_username(user_identity)
-        if not user or is_system(user.id):
-            raise Error.Forbidden()
-        organization_id = user.organization_id
+        organization_id = get_jwt_claims().get('organization_id')
 
         groups = ResourceUsageRepository.count_per_packet_loss(
             organization_id = organization_id,
