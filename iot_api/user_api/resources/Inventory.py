@@ -1,4 +1,5 @@
 import calendar
+import json
 import dateutil.parser as dp
 from flask import request, abort
 from flask_restful import Resource
@@ -131,7 +132,22 @@ class AssetAlertsAPI(Resource):
                 size=size
             )
 
-        alerts = [alert.to_json() for alert in results.items]
+        alerts = [{
+            'id': alert.id,
+            'type': alert.alert_type.to_json(),
+            'created_at': "{}".format(alert.created_at) if alert.created_at else None,
+            'packet_id': alert.packet_id,
+            'device_id': alert.device_id,
+            'data_collector_id': alert.data_collector_id,
+            'device_session_id': alert.device_session_id,
+            'gateway_id': alert.gateway_id,
+            'device_auth_id': alert.device_auth_id,
+            'parameters': json.loads(alert.parameters if alert.parameters is not None else '{}'),
+            'resolved_at': None if alert.resolved_at is None else "{}".format(alert.resolved_at),
+            'resolved_by_id': alert.resolved_by_id,
+            'resolution_comment': alert.resolution_comment
+        } for alert in results.items]
+
         response = {
             'alerts' : alerts,
             'total_pages': results.pages,
@@ -233,7 +249,33 @@ class AssetIssuesAPI(Resource):
                 size=size
             )
 
-        issues = [issue.to_list_json() for issue in results.items]
+        issues = [{
+            'id': issue.id,
+            'organization_id': issue.organization_id,
+            'since': f'{issue.since}' if issue.since else None,
+            'alert': {
+                'id': issue.alert.id,
+                'type': issue.alert.alert_type.to_json(),
+                'created_at': "{}".format(issue.alert.created_at) if issue.alert.created_at else None,
+                'packet_id': issue.alert.packet_id,
+                'device_id': issue.alert.device_id,
+                'data_collector_id': issue.alert.data_collector_id,
+                'device_session_id': issue.alert.device_session_id,
+                'gateway_id': issue.alert.gateway_id,
+                'device_auth_id': issue.alert.device_auth_id,
+                'parameters': json.loads(issue.alert.parameters if issue.alert.parameters is not None else '{}'),
+                'resolved_at': None if issue.alert.resolved_at is None else "{}".format(issue.alert.resolved_at),
+                'resolved_by_id': issue.alert.resolved_by_id,
+                'resolution_comment': issue.alert.resolution_comment
+            },
+            'parameters': json.loads(issue.parameters if issue.parameters is not None else '{}'),
+            'last_checked': f'{issue.last_checked}' if issue.last_checked else None,
+            'resolved_at': f'{issue.resolved_at}' if issue.resolved_at else None,
+            'resolved_by_id': issue.resolved_by_id,
+            'resolution_comment': issue.resolution_comment,
+            'resolution_reason_id': issue.resolution_reason_id
+        } for issue in results.items]
+
         response = {
             'issues' : issues,
             'total_pages': results.pages,
