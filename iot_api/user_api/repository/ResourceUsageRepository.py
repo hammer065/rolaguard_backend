@@ -177,7 +177,7 @@ def count_per_status(organization_id, asset_type=None, asset_status=None, gatewa
     gtw_query = db.session.query(Gateway.connected, func.count(distinct(Gateway.id)).label("count_result")).\
         select_from(Gateway).\
         group_by(Gateway.connected).\
-        filter(Device.organization_id==organization_id)
+        filter(Gateway.organization_id==organization_id)
 
     queries = add_filters(
         dev_query = dev_query,
