@@ -26,8 +26,6 @@ class AssetInformationAPI(Resource):
     def get(self, asset_type, asset_id):
         organization_id = get_jwt_claims().get('organization_id')
         asset = AssetRepository.get_with(asset_id, asset_type,  organization_id)
-        if not asset:
-            Error.NotFound(f"{asset_type} with id {asset_id} not found in organization {organization_id}")
         response = {
             'id' : asset.id,
             'hex_id' : asset.hex_id,
