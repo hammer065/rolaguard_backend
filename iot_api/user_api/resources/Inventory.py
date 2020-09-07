@@ -8,10 +8,11 @@ from flask_jwt_extended import get_jwt_claims
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
-from iot_api.user_api.model import User, Alert, Quarantine, GatewayToDevice, AlertType, AssetImportance
+from iot_api.user_api.model import User, Alert, Quarantine, GatewayToDevice, AlertType, AssetImportance, DataCollector
 from iot_api.user_api.Utils import is_system
 from iot_api.user_api.JwtUtils import admin_regular_allowed
 from iot_api.user_api.repository import AssetRepository, TagRepository
+from iot_api.user_api import Error
 
 class AssetInformationAPI(Resource):
     """ Endpoint to get information about an asset of a given type
@@ -25,13 +26,34 @@ class AssetInformationAPI(Resource):
     def get(self, asset_type, asset_id):
         organization_id = get_jwt_claims().get('organization_id')
         asset = AssetRepository.get_with(asset_id, asset_type,  organization_id)
-        response = asset.to_asset_json()
-        response['tags'] = [{
+        response = {
+            'id' : asset.id,
+            'hex_id' : asset.hex_id,
+            'organization_id': asset.organization_id,
+            'type' : asset.type,
+            'name' : asset.name,
+            'join_eui': getattr(asset, "join_eui", None),
+            'data_collector' : DataCollector.get(asset.data_collector_id).name,
+            'vendor' : asset.vendor,
+            'app_name' : getattr(asset, "app_name", None),
+            'connected' : asset.connected,
+            'last_activity' : str(asset.last_activity),
+            'location' : {'latitude' : getattr(asset, "location_latitude", None),
+                          'longitude': getattr(asset, "location_longitude", None)},
+            'activity_freq': asset.activity_freq,
+            'importance': asset.importance.value,
+            'npackets_up': asset.npackets_up,
+            'npackets_down': asset.npackets_down,
+            'npackets_lost': getattr(asset, "npackets_lost", None),
+            'max_rssi': getattr(asset, "max_rssi", None),
+            'max_lsnr': getattr(asset, "max_lsnr", None),
+            'is_otaa': getattr(asset, "is_otaa", None),
+            'tags' : [{
                 "id": tag.id,
                 "name": tag.name,
                 "color": tag.color
-            } for tag in TagRepository.list_asset_tags(asset_id, asset_type, organization_id)
-        ]
+                } for tag in TagRepository.list_asset_tags(asset_id, asset_type, organization_id)]
+        }
         return response, 200
        
 class AssetAlertsAPI(Resource):

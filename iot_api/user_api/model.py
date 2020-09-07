@@ -865,37 +865,6 @@ class Gateway(db.Model):
             'npackets_down': self.npackets_down
         }
     
-    def to_asset_json(self):
-        return {
-            'id' : self.id,
-            'hex_id' : self.gw_hex_id,
-            'organization_id': self.organization_id,
-            'type' : self.__tablename__,
-            'name' : self.name,
-            'join_eui' : None,
-            'data_collector_id' : self.data_collector_id,
-            'vendor' : self.vendor,
-            'app_name' : None,
-            'connected' : self.connected,
-            'last_activity' : "{}".format(self.last_activity),
-            'location' : {'latitude' : self.location_latitude,
-                          'longitude': self.location_longitude},
-            'activity_freq': self.activity_freq,
-            'importance': self.importance.value,
-            'npackets_up': self.npackets_up,
-            'npackets_down': self.npackets_down,
-            'npackets_lost': None,
-            'max_rssi': None,
-            'first_up_timestamp': None,
-            'last_up_timestamp': None,
-            'repeated_dev_nonce': None,
-            'join_request_counter': None,
-            'join_accept_counter': None,
-            'has_joined': None,
-            'join_inferred': None,
-            'is_otaa': None,
-            'last_packet_id': None      
-        }
 
 class Device(db.Model):
     __tablename__ = 'device'
@@ -957,38 +926,6 @@ class Device(db.Model):
             'npackets_down': self.npackets_down,
             'npackets_lost': self.npackets_lost,
             'max_rssi': self.max_rssi   
-        }
-
-    def to_asset_json(self):
-        return {
-            'id' : self.id,
-            'hex_id' : self.dev_eui,
-            'organization_id': self.organization_id,
-            'type' : self.__tablename__,
-            'name' : self.name,
-            'join_eui': self.join_eui,
-            'data_collector_id' : self.data_collector_id,
-            'vendor' : self.vendor,
-            'app_name' : self.app_name,
-            'connected' : self.connected,
-            'last_activity' : "{}".format(self.last_activity),
-            'location' : {'latitude' : None,
-                        'longitude': None},
-            'activity_freq': self.activity_freq,
-            'importance': self.importance.value,
-            'npackets_up': self.npackets_up,
-            'npackets_down': self.npackets_down,
-            'npackets_lost': self.npackets_lost,
-            'max_rssi': self.max_rssi,
-            'first_up_timestamp': "{}".format(self.first_up_timestamp),
-            'last_up_timestamp': "{}".format(self.last_up_timestamp),
-            'repeated_dev_nonce': self.repeated_dev_nonce,
-            'join_request_counter': self.join_request_counter,
-            'join_accept_counter': self.join_request_counter,
-            'has_joined': self.has_joined,
-            'join_inferred': self.join_inferred,
-            'is_otaa': self.is_otaa,
-            'last_packet_id': self.last_packet_id
         }
 
     @classmethod
