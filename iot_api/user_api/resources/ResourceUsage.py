@@ -49,6 +49,9 @@ class ResourceUsageInformationAPI(Resource):
             'packets_down': buildPacketsInfo(uptime, packet_counts.down, sum(list(packet_counts))),
             'packets_lost': buildPacketsInfo(uptime, packet_counts.lost, sum(list(packet_counts))) if asset.packet_loss is not None else None,
             'max_rssi': asset.max_rssi,
+            'max_lsnr': asset.max_lsnr,
+            'ngateways_connected_to': asset.ngateways_connected_to,
+            'payload_size': asset.payload_size,
             'tags': [{
                 "id": tag.id,
                 "name": tag.name,

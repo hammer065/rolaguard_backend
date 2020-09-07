@@ -37,7 +37,10 @@ def get_with(asset_id, asset_type, organization_id=None):
             Device.npackets_up,
             Device.npackets_down,
             Device.npackets_lost.label('packet_loss'),
-            Device.max_rssi
+            Device.max_rssi,
+            Device.max_lsnr,
+            Device.ngateways_connected_to,
+            Device.payload_size
             ).join(DataCollector).\
                 join(GatewayToDevice).\
                 filter(Device.id == asset_id).\
@@ -57,7 +60,10 @@ def get_with(asset_id, asset_type, organization_id=None):
             Gateway.npackets_up,
             Gateway.npackets_down,
             cast(expression.null(), Float).label('packet_loss'),
-            cast(expression.null(), Float).label('max_rssi')
+            cast(expression.null(), Float).label('max_rssi'),
+            cast(expression.null(), Float).label('max_lsnr'),
+            cast(expression.null(), Float).label('ngateways_connected_to'),
+            cast(expression.null(), Float).label('payload_size')
             ).join(DataCollector).\
                 filter(Gateway.id == asset_id).\
                 first()

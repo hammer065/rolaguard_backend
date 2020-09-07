@@ -926,7 +926,9 @@ class Device(db.Model):
     npackets_down = Column(BigInteger, nullable=False, default=0)
     npackets_lost = Column(Float, nullable=False, default=0)
     max_rssi = Column(Float, nullable=True)
-    
+    max_lsnr = Column(Float, nullable=True)
+    ngateways_connected_to = Column(BigInteger, nullable=False, default=0)
+    payload_size = Column(BigInteger, nullable=True)
 
     def to_json(self):
         return {
