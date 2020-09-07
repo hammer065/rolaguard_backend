@@ -105,7 +105,10 @@ def list_all(organization_id, page=None, size=None,
         Device.npackets_up,
         Device.npackets_down,
         Device.npackets_lost.label('packet_loss'),
-        Device.max_rssi
+        Device.max_rssi,
+        Device.max_lsnr,
+        Device.payload_size,
+        Device.ngateways_connected_to
         ).select_from(Device).\
             join(DataCollector).\
             join(GatewayToDevice).\
@@ -123,7 +126,10 @@ def list_all(organization_id, page=None, size=None,
         Gateway.npackets_up,
         Gateway.npackets_down,
         cast(expression.null(), Float).label('packet_loss'),
-        cast(expression.null(), Float).label('max_rssi')
+        cast(expression.null(), Float).label('max_rssi'),
+        cast(expression.null(), Float).label('max_lsnr'),
+        cast(expression.null(), Float).label('payload_size'),
+        cast(expression.null(), Float).label('ngateways_connected_to')
         ).select_from(Gateway).\
             join(DataCollector).\
             filter(Gateway.organization_id == organization_id)

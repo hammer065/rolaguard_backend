@@ -112,7 +112,10 @@ class ResourceUsageListAPI(Resource):
             'packets_up': buildPacketsInfo(uptime, packets.up, sum(list(packets))),
             'packets_down': buildPacketsInfo(uptime, packets.down, sum(list(packets))),
             'packets_lost': buildPacketsInfo(uptime, packets.lost, sum(list(packets))) if dev.packet_loss is not None else None,
-            'max_rssi': dev.max_rssi
+            'max_rssi': dev.max_rssi,
+            'max_lsnr': dev.max_lsnr,
+            'payload_size':dev.payload_size,
+            'ngateways_connected_to':dev.ngateways_connected_to
         } for dev, packets, uptime in zip(results.items, packet_counts, uptimes)]
         response = {
             'assets': assets,
