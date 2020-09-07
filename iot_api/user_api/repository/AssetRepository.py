@@ -27,16 +27,19 @@ def get_with(asset_id, asset_type, organization_id=None):
         asset = db.session.query(Device).\
             filter(Device.id == asset_id).\
             first()
+        asset.hex_id = asset.dev_eui
     elif asset_type=="gateway":
         asset = db.session.query(Gateway).\
             filter(Gateway.id == asset_id).\
             first()
+        asset.hex_id = asset.gw_hex_id
     else:
         raise Error.BadRequest(f"Invalid asset_type: {asset_type}. Valid values are \'device\' or \'gateway\'")
     if not asset:
         raise Error.NotFound(f"Asset with id {asset_id} and type {asset_type} not found")
     if organization_id and asset.organization_id != organization_id:
         raise Error.Forbidden("User's organization's different from asset organization")
+    asset.type = asset_type
     return asset
 
 
