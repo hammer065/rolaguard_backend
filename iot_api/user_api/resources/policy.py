@@ -35,7 +35,7 @@ class PolicyListResource(Resource):
         page = request.args.get('page', default=1, type=int)
         size = request.args.get('size', default=20, type=int)
 
-        result = Policy.find_with_collectors(organization_id, None, None, page, size)
+        result = Policy.find(organization_id, None, None, page, size)
         headers = {'total-pages': result.pages, 'total-items': result.total}
 
         for policy in result.items:
@@ -43,6 +43,8 @@ class PolicyListResource(Resource):
 
             existing_type_codes = [item.alert_type_code for item in policy.items]
             PolicyRepository.add_missing_items(policy.id, existing_type_codes)
+
+        Policy.add_data_collectors(organization_id=organization_id, policies=result.items)
 
         policies = [policy.to_dict() for policy in result.items]
 
