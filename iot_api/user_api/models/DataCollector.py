@@ -120,6 +120,10 @@ class DataCollector(db.Model):
         db.session.commit()
 
     @classmethod
+    def get(cls, id):
+        return db.session.query(cls).get(id)
+
+    @classmethod
     def find_by_id(cls, id):
         try:
             return cls.query.filter(cls.deleted_at == None).filter(cls.id == id).first()
