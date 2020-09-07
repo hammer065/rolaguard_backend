@@ -203,11 +203,11 @@ def count_per_status(organization_id, asset_type=None, asset_status=None, gatewa
     # Join the results of the queries
     counts = {
         'connected': {
-            'name': 'transmitting',
+            'name': 'connected',
             'count': 0
         },
         'disconnected': {
-            'name': 'not transmitting',
+            'name': 'disconnected',
             'count': 0
         }
     }
