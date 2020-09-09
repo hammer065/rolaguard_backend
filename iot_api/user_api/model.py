@@ -888,6 +888,7 @@ class Device(db.Model):
     first_up_timestamp = Column(db.DateTime(timezone=True), nullable=True)
     last_up_timestamp = Column(DateTime(timezone=True), nullable=True)
 
+    pending_first_connection = Column(Boolean, nullable=False, default=True)
     connected = Column(Boolean, nullable=False, default=True)
     last_activity = Column(DateTime(timezone=True), nullable=True)
     activity_freq = Column(Float, nullable=True)
@@ -925,7 +926,8 @@ class Device(db.Model):
             'npackets_up': self.npackets_up,
             'npackets_down': self.npackets_down,
             'npackets_lost': self.npackets_lost,
-            'max_rssi': self.max_rssi   
+            'max_rssi': self.max_rssi,
+            'pending_first_connection': self.pending_first_connection
         }
 
     @classmethod

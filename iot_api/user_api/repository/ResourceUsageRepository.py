@@ -112,7 +112,8 @@ def list_all(organization_id, page=None, size=None,
         ).select_from(Device).\
             join(DataCollector).\
             join(GatewayToDevice).\
-            filter(Device.organization_id==organization_id)
+            filter(Device.organization_id==organization_id).\
+            filter(Device.pending_first_connection==False)
     gtw_query = db.session.query(
         distinct(Gateway.id).label('id'),
         Gateway.gw_hex_id.label('hex_id'),
@@ -184,7 +185,8 @@ def count_per_status(organization_id, asset_type=None, asset_status=None, gatewa
         select_from(Device).\
         join(GatewayToDevice).\
         group_by(Device.connected).\
-        filter(Device.organization_id==organization_id)
+        filter(Device.organization_id==organization_id).\
+        filter(Device.pending_first_connection==False)
 
     gtw_query = db.session.query(Gateway.connected, func.count(distinct(Gateway.id)).label("count_result")).\
         select_from(Gateway).\
@@ -247,7 +249,8 @@ def count_per_gateway(organization_id, asset_type=None, asset_status=None, gatew
         join(GatewayToDevice).\
         join(Device).\
         group_by(Gateway.id, Gateway.gw_hex_id).\
-        filter(Gateway.organization_id==organization_id)
+        filter(Gateway.organization_id==organization_id).\
+        filter(Device.pending_first_connection==False)
 
     # The number of gateway grouped by gateway is simply 1
     gtw_query = db.session.query(Gateway.id, Gateway.gw_hex_id, expression.literal_column("1").label("count_result")).\
@@ -312,7 +315,8 @@ def count_per_signal_strength(organization_id, asset_type=None, asset_status=Non
     dev_query = dev_query.\
         select_from(Device).\
         join(GatewayToDevice).\
-        filter(Device.organization_id==organization_id)
+        filter(Device.organization_id==organization_id).\
+        filter(Device.pending_first_connection==False)
 
     queries = add_filters(
         dev_query = dev_query,
@@ -383,7 +387,8 @@ def count_per_packet_loss(organization_id, asset_type=None, asset_status=None, g
     dev_query = dev_query.\
         select_from(Device).\
         join(GatewayToDevice).\
-        filter(Device.organization_id==organization_id)
+        filter(Device.organization_id==organization_id).\
+        filter(Device.pending_first_connection==False)
 
     queries = add_filters(
         dev_query = dev_query,

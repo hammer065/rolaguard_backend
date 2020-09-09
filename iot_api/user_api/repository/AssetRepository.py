@@ -78,7 +78,8 @@ def list_all(organization_id, page=None, size=None,
         ).select_from(Device).\
             join(DataCollector).\
             join(GatewayToDevice).\
-            filter(Device.organization_id==organization_id)
+            filter(Device.organization_id==organization_id).\
+            filter(Device.pending_first_connection==False)
     gtw_query = db.session.query(
         distinct(Gateway.id).label('id'),
         Gateway.gw_hex_id.label('hex_id'),
@@ -153,7 +154,8 @@ def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
     dev_query = db.session.query(Device.vendor, func.count(distinct(Device.id))).\
         join(GatewayToDevice).\
         group_by(Device.vendor).\
-        filter(Device.organization_id==organization_id)
+        filter(Device.organization_id==organization_id).\
+        filter(Device.pending_first_connection==False)
 
     gtw_query = db.session.query(Gateway.vendor, func.count(distinct(Gateway.id))).\
         group_by(Gateway.vendor).\
@@ -217,7 +219,8 @@ def count_per_gateway(organization_id, vendors=None, gateway_ids=None,
         join(GatewayToDevice).\
         join(Device).\
         group_by(Gateway.id, Gateway.gw_hex_id).\
-        filter(Gateway.organization_id==organization_id)
+        filter(Gateway.organization_id==organization_id).\
+        filter(Device.pending_first_connection==False)
 
     # The number of gateway grouped by gateway is simply 1
     gtw_query = db.session.query(Gateway.id, Gateway.gw_hex_id, expression.literal_column("1").label("count")).\
@@ -282,7 +285,8 @@ def count_per_datacollector(organization_id, vendors=None, gateway_ids=None,
         join(DataCollector).\
         join(GatewayToDevice).\
         group_by(DataCollector.id, DataCollector.name).\
-        filter(DataCollector.organization_id == organization_id)
+        filter(DataCollector.organization_id == organization_id).\
+        filter(Device.pending_first_connection==False)
 
     gtw_query = db.session.query(DataCollector.id, DataCollector.name, func.count(distinct(Gateway.id))).\
         select_from(Gateway).\
@@ -348,7 +352,8 @@ def count_per_tag(organization_id, vendors=None, gateway_ids=None,
         select_from(Device).\
         join(DeviceToTag).join(Tag).\
         group_by(Tag.id, Tag.name, Tag.color).\
-        filter(Device.organization_id == organization_id)
+        filter(Device.organization_id == organization_id).\
+        filter(Device.pending_first_connection==False)
 
     gtw_query = db.session.query(Tag.id, Tag.name, Tag.color, func.count(distinct(Gateway.id))).\
         select_from(Gateway).\
@@ -412,7 +417,8 @@ def count_per_importance(organization_id, vendors=None, gateway_ids=None,
     dev_query = db.session.query(Device.importance, func.count(distinct(Device.id))).\
         join(GatewayToDevice).\
         group_by(Device.importance).\
-        filter(Device.organization_id==organization_id)
+        filter(Device.organization_id==organization_id).\
+        filter(Device.pending_first_connection==False)
 
     gtw_query = db.session.query(Gateway.importance, func.count(distinct(Gateway.id))).\
         group_by(Gateway.importance).\
