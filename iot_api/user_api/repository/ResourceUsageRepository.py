@@ -40,7 +40,8 @@ def get_with(asset_id, asset_type, organization_id=None):
             Device.max_rssi,
             Device.max_lsnr,
             Device.ngateways_connected_to,
-            Device.payload_size
+            Device.payload_size,
+            Device.last_packets_list
             ).join(DataCollector).\
                 join(GatewayToDevice).\
                 filter(Device.id == asset_id).\

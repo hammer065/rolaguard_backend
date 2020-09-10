@@ -900,6 +900,8 @@ class Device(db.Model):
     ngateways_connected_to = Column(BigInteger, nullable=False, default=0)
     payload_size = Column(BigInteger, nullable=True)
 
+    last_packets_list = Column(String(1024), nullable=True, default='[]')
+
     def to_json(self):
         return {
             'id': self.id,

@@ -2,7 +2,7 @@ from flask import request
 from flask_restful import Resource
 from flask_jwt_extended import get_jwt_claims
 
-import iot_logging, calendar
+import iot_logging, calendar, json
 log = iot_logging.getLogger(__name__)
 
 from collections import namedtuple
@@ -10,7 +10,7 @@ from collections import namedtuple
 from iot_api.user_api.model import User
 from iot_api.user_api.Utils import is_system
 from iot_api.user_api.JwtUtils import admin_regular_allowed
-from iot_api.user_api.repository import ResourceUsageRepository, TagRepository
+from iot_api.user_api.repository import ResourceUsageRepository, TagRepository, PacketRepository
 from iot_api.user_api import Error
 
 class ResourceUsageInformationAPI(Resource):
@@ -56,7 +56,8 @@ class ResourceUsageInformationAPI(Resource):
                 "id": tag.id,
                 "name": tag.name,
                 "color": tag.color
-            } for tag in TagRepository.list_asset_tags(asset_id, asset_type, organization_id)]
+            } for tag in TagRepository.list_asset_tags(asset_id, asset_type, organization_id)],
+            'last_packets_list': [packet.to_json() for packet in PacketRepository.get_with(ids_list=json.loads(asset.last_packets_list))] if asset_type == 'device' else None
         }
 
         return response, 200
