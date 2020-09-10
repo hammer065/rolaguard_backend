@@ -64,7 +64,8 @@ def get_with(asset_id, asset_type, organization_id=None):
             cast(expression.null(), Float).label('max_rssi'),
             cast(expression.null(), Float).label('max_lsnr'),
             cast(expression.null(), Float).label('ngateways_connected_to'),
-            cast(expression.null(), Float).label('payload_size')
+            cast(expression.null(), Float).label('payload_size'),
+            expression.null().label('last_packets_list')
             ).join(DataCollector).\
                 filter(Gateway.id == asset_id).\
                 first()
