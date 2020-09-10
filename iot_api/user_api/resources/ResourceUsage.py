@@ -67,9 +67,14 @@ class ResourceUsageListAPI(Resource):
     Request parameters (all optional):
         - page: for pagination.
         - size: for pagination.
-        - gateway_ids[]: for filtering, list only the assets connected to ANY one of these gateways.
-        - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
-        - asset_type: for filtering, list only this type of asset ("device" or "gateway").
+        - asset_type: for filtering, count only this type of asset ("device" or "gateway").
+        - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
+        - device_ids[]: for filtering, list only the assets related to ANY of these devices
+        - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
+        - max_signal_strength: for filtering, count only the assets with signal strength not higher than this value (dBm)
+        - min_packet_loss: for filtering, count only the assets with packet loss not lower than this value (percentage)
+        - max_packet_loss: for filtering, count only the assets with packet loss not higher than this value (percentage)
     Returns:
         - JSON with list of assets and their resource usage (see code for more details about the fields).
     """
@@ -85,6 +90,7 @@ class ResourceUsageListAPI(Resource):
             asset_type = request.args.get('asset_type', default=None, type=str),
             asset_status = request.args.get('asset_status', default=None, type=str),
             gateway_ids = request.args.getlist('gateway_ids[]'),
+            device_ids = request.args.getlist('device_ids[]'),
             min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
             max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
             min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
@@ -149,6 +155,7 @@ class ResourceUsagePerStatusCountAPI(Resource):
         - asset_type: for filtering, count only this type of asset ("device" or "gateway").
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
+        - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
         - max_signal_strength: for filtering, count only the assets with signal strength not higher than this value (dBm)
         - min_packet_loss: for filtering, count only the assets with packet loss not lower than this value (percentage)
@@ -159,12 +166,13 @@ class ResourceUsagePerStatusCountAPI(Resource):
     @admin_regular_allowed
     def get(self):
         organization_id = get_jwt_claims().get('organization_id')   
-
+        
         groups = ResourceUsageRepository.count_per_status(
             organization_id = organization_id,
             asset_type = request.args.get('asset_type', default=None, type=str),
             asset_status = request.args.get('asset_status', default=None, type=str),
             gateway_ids = request.args.getlist('gateway_ids[]'),
+            device_ids = request.args.getlist('device_ids[]'),
             min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
             max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
             min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
@@ -181,6 +189,7 @@ class ResourceUsagePerGatewayCountAPI(Resource):
         - asset_type: for filtering, count only this type of asset ("device" or "gateway").
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
+        - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
         - max_signal_strength: for filtering, count only the assets with signal strength not higher than this value (dBm)
         - min_packet_loss: for filtering, count only the assets with packet loss not lower than this value (percentage)
@@ -197,6 +206,7 @@ class ResourceUsagePerGatewayCountAPI(Resource):
             asset_type = request.args.get('asset_type', default=None, type=str),
             asset_status = request.args.get('asset_status', default=None, type=str),
             gateway_ids = request.args.getlist('gateway_ids[]'),
+            device_ids = request.args.getlist('device_ids[]'),
             min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
             max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
             min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
@@ -213,6 +223,7 @@ class ResourceUsagePerSignalStrengthCountAPI(Resource):
         - asset_type: for filtering, count only this type of asset ("device" or "gateway").
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
+        - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
         - max_signal_strength: for filtering, count only the assets with signal strength not higher than this value (dBm)
         - min_packet_loss: for filtering, count only the assets with packet loss not lower than this value (percentage)
@@ -235,6 +246,7 @@ class ResourceUsagePerSignalStrengthCountAPI(Resource):
             asset_type = request.args.get('asset_type', default=None, type=str),
             asset_status = request.args.get('asset_status', default=None, type=str),
             gateway_ids = request.args.getlist('gateway_ids[]'),
+            device_ids = request.args.getlist('device_ids[]'),
             min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
             max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
             min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
@@ -258,6 +270,7 @@ class ResourceUsagePerPacketLossCountAPI(Resource):
         - asset_type: for filtering, count only this type of asset ("device" or "gateway").
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
+        - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
         - max_signal_strength: for filtering, count only the assets with signal strength not higher than this value (dBm)
         - min_packet_loss: for filtering, count only the assets with packet loss not lower than this value (percentage)
@@ -280,6 +293,7 @@ class ResourceUsagePerPacketLossCountAPI(Resource):
             asset_type = request.args.get('asset_type', default=None, type=str),
             asset_status = request.args.get('asset_status', default=None, type=str),
             gateway_ids = request.args.getlist('gateway_ids[]'),
+            device_ids = request.args.getlist('device_ids[]'),
             min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
             max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
             min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
