@@ -8,10 +8,10 @@ from flask_jwt_extended import get_jwt_claims
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
-from iot_api.user_api.model import User, Alert, Quarantine, GatewayToDevice, AlertType, AssetImportance, DataCollector
+from iot_api.user_api.model import User, Alert, Quarantine, AlertType, AssetImportance, DataCollector
 from iot_api.user_api.Utils import is_system
 from iot_api.user_api.JwtUtils import admin_regular_allowed
-from iot_api.user_api.repository import AssetRepository, TagRepository
+from iot_api.user_api.repository import AssetRepository, TagRepository, GatewayToDeviceRepository
 from iot_api.user_api import Error
 
 class AssetInformationAPI(Resource):
@@ -38,8 +38,6 @@ class AssetInformationAPI(Resource):
             'app_name' : getattr(asset, "app_name", None),
             'connected' : asset.connected,
             'last_activity' : str(asset.last_activity),
-            'location' : {'latitude' : getattr(asset, "location_latitude", None),
-                          'longitude': getattr(asset, "location_longitude", None)},
             'activity_freq': asset.activity_freq,
             'importance': asset.importance.value,
             'npackets_up': asset.npackets_up,
@@ -54,6 +52,23 @@ class AssetInformationAPI(Resource):
                 "color": tag.color
                 } for tag in TagRepository.list_asset_tags(asset_id, asset_type, organization_id)]
         }
+
+        if asset_type == 'device': # load location of gateways connected to this device as location attribute
+            connected_gw_ids = [gw_to_device.gateway_id for gw_to_device in GatewayToDeviceRepository.find_all_with(device_id=asset.id)]
+            connected_gws = [AssetRepository.get_with(gw_id, 'gateway', organization_id) for gw_id in connected_gw_ids]
+            response['location'] = [{
+                getattr(gw, 'id'): {
+                    'hex_id': getattr(gw, 'hex_id'),
+                    'latitude': getattr(gw, 'location_latitude', None),
+                    'longitude': getattr(gw, 'location_longitude', None)
+                }
+            } for gw in connected_gws]
+        else: # load location of gateway
+            response['location'] = [{
+                'latitude' : getattr(asset, "location_latitude", None),
+                'longitude': getattr(asset, "location_longitude", None)
+            }]
+
         return response, 200
        
 class AssetAlertsAPI(Resource):
@@ -263,7 +278,7 @@ class AssetIssuesAPI(Resource):
                 since=since,
                 until=until,
                 alert_types=[AlertType.find_one(alert_type_code).id for alert_type_code in alert_types],
-                devices=[entry.device_id for entry in GatewayToDevice.find_by_gateway_id(asset.id)],
+                devices=[gw_to_device.device_id for gw_to_device in GatewayToDeviceRepository.find_all_with(gateway_id=asset.id)],
                 risks=risks,
                 data_collectors=None,
                 order_by=order_by,

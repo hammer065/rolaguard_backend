@@ -981,10 +981,6 @@ class GatewayToDevice(db.Model):
     gateway_id = Column(BigInteger, db.ForeignKey("gateway.id"), nullable=False, primary_key=True)
     device_id = Column(BigInteger, db.ForeignKey("device.id"), nullable=False, primary_key=True)
 
-    @classmethod
-    def find_by_gateway_id(cls, gateway_id):
-        return cls.query.filter(cls.gateway_id == gateway_id).all()
-
 class GatewayToDeviceSession(db.Model):
     __tablename__ = 'gateway_to_device_session'
     gateway_id = Column(BigInteger, db.ForeignKey("gateway.id"), nullable=False, primary_key=True)
