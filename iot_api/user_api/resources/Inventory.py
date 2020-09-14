@@ -20,7 +20,7 @@ class AssetInformationAPI(Resource):
         - asset_type: type of requested asset (can be device or gateway).
         - asset_id: database id of the asset
     Returns:
-        - JSON with requested asset. See Device/Gateway model's to_asset_json method for further details
+        - JSON with requested asset.
     """
     @admin_regular_allowed
     def get(self, asset_type, asset_id):
@@ -38,6 +38,10 @@ class AssetInformationAPI(Resource):
             'app_name' : getattr(asset, "app_name", None),
             'connected' : asset.connected,
             'last_activity' : str(asset.last_activity),
+            'location' : {
+                'latitude' : getattr(asset, "location_latitude", None),
+                'longitude': getattr(asset, "location_longitude", None)
+            },
             'activity_freq': asset.activity_freq,
             'importance': asset.importance.value,
             'npackets_up': asset.npackets_up,
@@ -53,21 +57,19 @@ class AssetInformationAPI(Resource):
                 } for tag in TagRepository.list_asset_tags(asset_id, asset_type, organization_id)]
         }
 
-        if asset_type == 'device': # load location of gateways connected to this device as location attribute
+        if asset_type == 'device': # load location of gateways connected to this device as gateway_locations attribute
             connected_gw_ids = [gw_to_device.gateway_id for gw_to_device in GatewayToDeviceRepository.find_all_with(device_id=asset.id)]
             connected_gws = [AssetRepository.get_with(gw_id, 'gateway', organization_id) for gw_id in connected_gw_ids]
-            response['location'] = [{
+            response['gateway_locations'] = [{
                 getattr(gw, 'id'): {
-                    'hex_id': getattr(gw, 'hex_id'),
+                    'name': getattr(gw, 'name', None),
+                    'hex_id': getattr(gw, 'hex_id', None),
                     'latitude': getattr(gw, 'location_latitude', None),
                     'longitude': getattr(gw, 'location_longitude', None)
                 }
             } for gw in connected_gws]
-        else: # load location of gateway
-            response['location'] = [{
-                'latitude' : getattr(asset, "location_latitude", None),
-                'longitude': getattr(asset, "location_longitude", None)
-            }]
+        else: # gateway location is already loaded in location attribute, return None as gateway_locations
+            response['gateway_locations'] = None
 
         return response, 200
        
@@ -93,7 +95,7 @@ class AssetAlertsAPI(Resource):
         - page: requested page number for pagination, defaults to 1 (first page)
         - size: results per page, defaults to 20
     Returns:
-        - paginated list of alerts. see Alert model's to_json method to further details
+        - paginated list of alerts.
     """
     @admin_regular_allowed
     def get(self, asset_type, asset_id):
@@ -214,7 +216,7 @@ class AssetIssuesAPI(Resource):
         - page: requested page number for pagination, defaults to 1 (first page)
         - size: results per page, defaults to 20
     Returns:
-        - paginated list of issues. see Quarantine model's to_json method to further details
+        - paginated list of issues.
     """
     @admin_regular_allowed
     def get(self, asset_type, asset_id):
