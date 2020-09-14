@@ -115,7 +115,7 @@ def handle_alert_events(ch, method, properties, body):
                 if device:
                     has_all_tags = DeviceRepository.has_all_tags(device.id, tag_id_list)
                 elif gateway:
-                    has_all_tags = GatewayRepository.has_all_tags(device.id, tag_id_list)
+                    has_all_tags = GatewayRepository.has_all_tags(gateway.id, tag_id_list)
             except Exception as e:
                 LOG.error(f"Error {e} on handling NotificationAssetTag preferences for user {user.id}. Ignoring this preference")
                 has_all_tags = True

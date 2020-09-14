@@ -2119,9 +2119,7 @@ class AlertsListCountAPI(Resource):
             if len(types) > 0 or resolved is not None or len(_risks) > 0:
                 counts = Alert.count_by_hour(organization_id, since, until, types, resolved, _risks)
                 counts = list(map(lambda item: {'count': item.count, 'hour': item.hour}, counts))
-                LOG.debug('count normal')
             else:
-                LOG.debug('stats counters')
                 counts = StatsCounters.find(organization_id, since, until, data_collectors)
                 counts = list(map(lambda item: {'count': item.alerts_count, 'hour': item.hour}, counts))
 

@@ -706,7 +706,6 @@ class Alert(db.Model):
             if data_collectors and len(data_collectors) > 0:
                 query = query.filter(cls.data_collector_id.in_(data_collectors))
 
-            LOG.debug(f"count: {query}")
             return query.scalar()
         except Exception as e:
             LOG.error(e)
