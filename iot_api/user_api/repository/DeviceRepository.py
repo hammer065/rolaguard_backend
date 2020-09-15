@@ -27,7 +27,8 @@ def query_ids_with(tag_ids):
   
 def has_all_tags(device_id, tag_id_list):
     """ Return a boolean indicating whether the device is tagged with every tag in the list or not """
-    return db.session.query(DeviceToTag).filter(
+    query = db.session.query(func.count(DeviceToTag.tag_id)).filter(
         DeviceToTag.device_id == device_id,
         DeviceToTag.tag_id.in_(tag_id_list)
-    ).count() == len(tag_id_list)
+    )
+    return query.scalar() == len(tag_id_list)

@@ -16,6 +16,7 @@ def is_from_organization(gateway_id, organization_id):
         Gateway.organization_id == organization_id
     ).exists()).scalar()
 
+
 def query_ids_with(tag_ids):
     return db.session.query(distinct(Gateway.id)).\
             join(GatewayToTag).\
@@ -25,8 +26,9 @@ def query_ids_with(tag_ids):
 
 def has_all_tags(gateway_id, tag_id_list):
     """ Return a boolean indicating whether the gateway is tagged with every tag in the list or not """
-    return db.session.query(GatewayToTag).filter(
+    query = db.session.query(func.count(GatewayToTag.tag_id)).filter(
         GatewayToTag.gateway_id == gateway_id,
         GatewayToTag.tag_id.in_(tag_id_list)
-    ).count() == len(tag_id_list)
+    )
+    return query.scalar() == len(tag_id_list)
 
