@@ -14,7 +14,7 @@ from iot_api.user_api import resources as res
 from iot_api import app, api, jwt
 from iot_api.user_api import db
 from iot_api import mail, socketio
-from iot_api.user_api.model import RevokedTokenModel
+from iot_api.user_api.models import RevokedTokenModel
 
 import simplejson as json
 from pprint import pprint

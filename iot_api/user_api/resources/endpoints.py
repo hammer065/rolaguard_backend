@@ -27,10 +27,11 @@ from iot_api import config
 from iot_api.user_api.enums import RoleTypes
 from iot_api.user_api.events.data_collector_events import emit_data_collector_event
 from iot_api.user_api.events.policy_events import emit_policy_event
-from iot_api.user_api.model import User, Organization, Device, RevokedTokenModel, AccountActivation, StatsCounters, \
-    PasswordReset, LoginAttempts, UserRole, UserToUserRole, ChangeEmailRequests, Alert, AlertType, Packet, \
-    SendMailAttempts, GlobalData, \
+from iot_api.user_api.model import User, Organization, Device, AccountActivation, \
+    UserRole, UserToUserRole, Alert, AlertType, Packet, \
     get_user_collector_ids
+from iot_api.user_api.models import ChangeEmailRequests, GlobalData, LoginAttempts, PasswordReset, \
+    RevokedTokenModel, SendMailAttempts, StatsCounters
 from iot_api.user_api.models.DataCollector import DataCollector, DataCollectorStatus
 from iot_api.user_api.models.DataCollectorLogEvent import DataCollectorLogEvent, DataCollectorLogEventType
 from iot_api.user_api.models.DataCollectorType import DataCollectorType

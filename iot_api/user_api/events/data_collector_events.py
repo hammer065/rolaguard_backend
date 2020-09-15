@@ -4,7 +4,7 @@ import iot_logging
 from threading import Thread
 from datetime import datetime
 from iot_api import rabbit_parameters
-from iot_api.user_api.model import GlobalData
+from iot_api.user_api.models import GlobalData
 from iot_api.user_api.models.DataCollector import DataCollector, DataCollectorStatus
 from iot_api.user_api.models.DataCollectorLogEvent import DataCollectorLogEvent, DataCollectorLogEventType
 
