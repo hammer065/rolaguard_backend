@@ -8,7 +8,7 @@ from flask_jwt_extended import get_jwt_claims
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
-from iot_api.user_api.model import User, Alert, Quarantine, AlertType, AssetImportance, DataCollector
+from iot_api.user_api.model import User, Alert, Quarantine, AlertType, AssetImportance, DataCollector, AlertAssetType
 from iot_api.user_api.Utils import is_system
 from iot_api.user_api.JwtUtils import admin_regular_allowed
 from iot_api.user_api.repository import AssetRepository, TagRepository, GatewayToDeviceRepository
@@ -145,7 +145,7 @@ class AssetAlertsAPI(Resource):
         asset = AssetRepository.get_with(asset_id, asset_type, organization_id)
 
         if asset_type == 'device': 
-            results = Alert.find_by_device_id(
+            results = Alert.find_with(
                 device_id=asset.id,
                 organization_id=organization_id,
                 since=since,
@@ -155,10 +155,11 @@ class AssetAlertsAPI(Resource):
                 risks=risks,
                 order_by=order_by,
                 page=page,
-                size=size
+                size=size,
+                alert_asset_type=AlertAssetType.DEVICE
             )
         else:
-            results = Alert.find_by_gateway_id(
+            results = Alert.find_with(
                 gateway_id=asset.id,
                 organization_id=organization_id,
                 since=since,
@@ -168,7 +169,8 @@ class AssetAlertsAPI(Resource):
                 risks=risks,
                 order_by=order_by,
                 page=page,
-                size=size
+                size=size,
+                alert_asset_type=AlertAssetType.GATEWAY
             )
 
         alerts = [{

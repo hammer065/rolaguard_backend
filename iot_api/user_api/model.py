@@ -3,8 +3,9 @@ from iot_api.user_api.enums import RoleTypes
 from iot_api.user_api.models.DataCollector import *
 from iot_api import config
 
-from sqlalchemy import Table, Column, ForeignKey, func, desc, asc, cast, case, \
+from sqlalchemy import Table, Column, ForeignKey, func, desc, asc, cast, case, and_, or_, distinct, \
     DateTime, String, Integer, BigInteger, SmallInteger, Float, Boolean
+from sqlalchemy.types import JSON
 from sqlalchemy.orm import relationship
 
 import json
@@ -318,6 +319,14 @@ class AccountActivation(db.Model):
         return cls.query.filter_by(user_id=user_id).order_by(desc(AccountActivation.creation_date))
 
 
+class AlertAssetType(Enum):
+    DEVICE = 'DEVICE'
+    GATEWAY = 'GATEWAY'
+    BOTH = 'BOTH'
+    NONE = 'NONE'
+    LOOK_IN_ALERT_PARAMS = 'LOOK_IN_ALERT_PARAMS'
+
+
 class AlertType(db.Model):
     __tablename__ = 'alert_type'
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -330,6 +339,7 @@ class AlertType(db.Model):
     technical_description = Column(String(3000), nullable=True)
     recommended_action = Column(String(3000), nullable=True)
     quarantine_timeout = Column(Integer, nullable=True, default=0)
+    for_asset_type = Column(SQLEnum(AlertAssetType))
 
     def to_json(self):
         return {
@@ -483,13 +493,25 @@ class Alert(db.Model):
             LOG.error(e)
 
     @classmethod
-    def find_by_gateway_id(cls, gateway_id, organization_id, since, until, types, resolved, risks, order_by, page, size):
+    def find_with(cls, organization_id, since, until, types, resolved, risks, order_by, page, size, device_id=None, gateway_id=None, alert_asset_type = AlertAssetType.BOTH):
+        AlertTypeExplicit = db.aliased(AlertType)
+        AlertTypeImplicit = db.aliased(AlertType)
+
         query = db.session.query(Alert)\
                 .join(DataCollector)\
+                .join(AlertTypeExplicit, AlertTypeExplicit.code == Alert.type)\
+                .join(AlertTypeImplicit, or_(
+                    AlertTypeImplicit.code == AlertTypeExplicit.code,
+                    AlertTypeImplicit.code == cast(Alert.parameters, JSON)['alert_solved_type'].as_string(),
+                ))\
                 .filter(DataCollector.organization_id == organization_id)\
-                .filter(cls.show == True)\
-                .filter(cls.gateway_id == gateway_id)
+                .filter(cls.show == True)
 
+        if device_id is not None:
+            query = query.filter(cls.device_id == device_id)
+        if gateway_id is not None:
+            query = query.filter(cls.gateway_id == gateway_id)
+        
         if since:
             query = query.filter(cls.created_at >= since)
         if until:
@@ -502,42 +524,24 @@ class Alert(db.Model):
             else:
                 query = query.filter(cls.resolved_at == None)
         if risks and len(risks) > 0:
-            query = query.filter(AlertType.code == cls.type).filter(AlertType.risk.in_(risks))
-        if order_by:
-            order_field = order_by[0]
-            order_direction = order_by[1]
-            if 'ASC' == order_direction:
-                query = query.order_by(asc(getattr(cls, order_field)))
-            else:
-                query = query.order_by(desc(getattr(cls, order_field)))
+            query = query.filter(AlertTypeExplicit.risk.in_(risks))
+
+        #Get only alerts of types that correlates with the value of the param alert_asset_type
+        if alert_asset_type == AlertAssetType.BOTH:
+            valid_types = [AlertAssetType.BOTH, AlertAssetType.DEVICE, AlertAssetType.GATEWAY]
+        elif alert_asset_type == AlertAssetType.DEVICE or alert_asset_type == AlertAssetType.GATEWAY:
+            valid_types = [AlertAssetType.BOTH, alert_asset_type]
         else:
-            query = query.order_by(desc(cls.created_at)) # newest first if no order_by parameter is specified
-        if page and size:
-            return query.paginate(page=page, per_page=size, error_out=config.ERROR_OUT, max_per_page=config.MAX_PER_PAGE)
-      
-        return query.all()
+            valid_types = [alert_asset_type]
 
-    @classmethod
-    def find_by_device_id(cls, device_id, organization_id, since, until, types, resolved, risks, order_by, page, size):
-        query = db.session.query(Alert)\
-                .join(DataCollector)\
-                .filter(DataCollector.organization_id == organization_id)\
-                .filter(cls.show == True)\
-                .filter(cls.device_id == device_id)
+        query = query.filter(or_(
+            AlertTypeExplicit.for_asset_type.in_(valid_types),
+            and_(
+                AlertTypeExplicit.for_asset_type == AlertAssetType.LOOK_IN_ALERT_PARAMS,
+                AlertTypeImplicit.for_asset_type.in_(valid_types)
+            )
+        ))
 
-        if since:
-            query = query.filter(cls.created_at >= since)
-        if until:
-            query = query.filter(cls.created_at <= until)
-        if types and len(types) > 0:
-            query = query.filter(cls.type.in_(types))
-        if resolved is not None:
-            if resolved:
-                query = query.filter(cls.resolved_at != None)
-            else:
-                query = query.filter(cls.resolved_at == None)
-        if risks and len(risks) > 0:
-            query = query.filter(AlertType.code == cls.type).filter(AlertType.risk.in_(risks))
         if order_by:
             order_field = order_by[0]
             order_direction = order_by[1]
