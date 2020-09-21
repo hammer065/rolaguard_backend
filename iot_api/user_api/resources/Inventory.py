@@ -156,7 +156,7 @@ class AssetAlertsAPI(Resource):
                 order_by=order_by,
                 page=page,
                 size=size,
-                alert_asset_type=AlertAssetType.DEVICE
+                asset_type=asset_type
             )
         else:
             results = Alert.find_with(
@@ -170,7 +170,7 @@ class AssetAlertsAPI(Resource):
                 order_by=order_by,
                 page=page,
                 size=size,
-                alert_asset_type=AlertAssetType.GATEWAY
+                asset_type=asset_type
             )
 
         alerts = [{
@@ -270,19 +270,22 @@ class AssetIssuesAPI(Resource):
                 until=until,
                 alert_types=[AlertType.find_one(alert_type_code).id for alert_type_code in alert_types],
                 devices=[asset.id],
+                asset_type=asset_type,
                 risks=risks,
                 data_collectors=None,
                 order_by=order_by,
                 page=page,
                 size=size
             ) 
-        else: # for a gateway, return all the issues that the devices connected to this gateway have created
+        else: # for a gateway, return all the issues that this gateway has created
             results = Quarantine.find(
                 organization_id=organization_id,
                 since=since,
                 until=until,
                 alert_types=[AlertType.find_one(alert_type_code).id for alert_type_code in alert_types],
-                devices=[gw_to_device.device_id for gw_to_device in GatewayToDeviceRepository.find_all_with(gateway_id=asset.id)],
+                devices=None,
+                gateway_id=asset.id,
+                asset_type=asset_type,
                 risks=risks,
                 data_collectors=None,
                 order_by=order_by,
