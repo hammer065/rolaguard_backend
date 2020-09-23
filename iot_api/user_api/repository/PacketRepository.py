@@ -3,7 +3,7 @@ LOG = iot_logging.getLogger(__name__)
 
 from iot_api.user_api import db
 from iot_api.user_api.model import Packet, Gateway
-from sqlalchemy import and_
+from sqlalchemy import and_, asc
 
 def get_with(ids_list, min_rssi=None, max_rssi=None, min_lsnr=None, max_lsnr=None):
     """ Gets a list of packets from database
@@ -24,4 +24,6 @@ def get_with(ids_list, min_rssi=None, max_rssi=None, min_lsnr=None, max_lsnr=Non
         query = query.filter(Packet.lsnr >= min_lsnr)
     if max_lsnr is not None:
         query = query.filter(Packet.lsnr <= max_lsnr)
-    return query.join(Gateway, and_(Packet.gateway == Gateway.gw_hex_id, Packet.data_collector_id == Gateway.data_collector_id)).all()
+    return query.join(Gateway, and_(Packet.gateway == Gateway.gw_hex_id, Packet.data_collector_id == Gateway.data_collector_id))\
+                .order_by(asc(Packet.date))\
+                .all()
