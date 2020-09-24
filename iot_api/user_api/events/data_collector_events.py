@@ -4,7 +4,7 @@ import iot_logging
 from threading import Thread
 from datetime import datetime
 from iot_api import rabbit_parameters
-from iot_api.user_api.model import GlobalData
+from iot_api.user_api.models import GlobalData
 from iot_api.user_api.models.DataCollector import DataCollector, DataCollectorStatus
 from iot_api.user_api.models.DataCollectorLogEvent import DataCollectorLogEvent, DataCollectorLogEventType
 
@@ -29,24 +29,19 @@ def subscribe_data_collector_consumers():
 
 # region test events
 def test_results_consumer():
-    LOG.debug("registering for events from queue [data_collectors_test_events]")
-    connection = None
+    exchange = 'data_collectors_events'
+    queue = 'data_collectors_test_events'
     while(True):
         try:
-            exchange = 'data_collectors_events'
-            queue = 'data_collectors_test_events'
-            if not(connection and connection.is_open):
-                LOG.debug('Creating new connection')
-                connection = pika.BlockingConnection(rabbit_parameters)
+            LOG.debug(f'Creating new connection to queue {queue}')
+            connection = pika.BlockingConnection(rabbit_parameters)
             channel = connection.channel()
             channel.exchange_declare(exchange=exchange, exchange_type='direct')
             channel.queue_declare(queue=queue)
             channel.basic_consume(on_message_callback=handle_test_events, queue=queue, auto_ack=True)
-            LOG.debug(f"consuming events from queue [{queue}]")
             channel.start_consuming()
         except Exception as e:
-            LOG.error(f"Error {e} on connection to queue {queue}. Reconnecting")
-            continue
+            LOG.error(f"Error connecting to queue {queue}:\n{e}")
 
 def handle_test_events(ch, method, properties, body):
     """
@@ -78,24 +73,20 @@ def handle_test_events(ch, method, properties, body):
 
 # region status events
 def consumer():
-    LOG.debug("Registering for events from queue [data_collectors_status_events]")
-    connection = None
     while(True):
-        LOG.debug('Connecting')
         try:
             queue = 'data_collectors_status_events'
             exchange = 'data_collector_events'
-            if not(connection and connection.is_open):
-                LOG.debug('Creating new connection')
-                connection = pika.BlockingConnection(rabbit_parameters)
+
+            LOG.debug(f'Creating new connection to queue {queue}')
+            connection = pika.BlockingConnection(rabbit_parameters)
             channel = connection.channel()
             channel.exchange_declare(exchange=exchange, exchange_type='direct')
             channel.queue_declare(queue=queue)
             channel.basic_consume(on_message_callback=handle_status_events, queue=queue, auto_ack=True)
-            LOG.debug(f"consuming events from queue [{queue}]")
             channel.start_consuming()
         except Exception as e:
-            LOG.error(f"Error {e} on connection to queue {queue}. Reconnecting")
+            LOG.error(f"Error on connection to queue {queue}:\n{e}")
             continue
 
 def handle_status_events(ch, method, properties, body):
@@ -214,10 +205,10 @@ def emit_data_collector_event(type, data):
     }
     body = json.dumps(event)
     queue = 'data_collectors_events'
-    # json.dumps(event) #????
+
     connection = pika.BlockingConnection(rabbit_parameters)
     channel = connection.channel()
-    channel.queue_declare(queue=queue, durable=False)
+    channel.queue_declare(queue=queue)
     channel.basic_publish(exchange='', routing_key=queue, body=body)
     LOG.debug('Published {type} event on {queue}'.format(type=type, queue=queue))
     # emit_data_collector_event_ws(UPDATED_DATA_COLLECTOR, data, data.get('organization_id'))

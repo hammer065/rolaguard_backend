@@ -25,5 +25,4 @@ gunicorn
 eventlet
 flask_socketio
 kombu
-Shapely
-dnspython<2
+py3DNS

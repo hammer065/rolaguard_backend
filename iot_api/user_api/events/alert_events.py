@@ -13,13 +13,12 @@ from iot_api import app
 from iot_api import mail
 from iot_api import rabbit_parameters
 from iot_api.user_api.model import User, Alert, AlertType
-from iot_api.user_api.models import Notification
-from iot_api.user_api.models.NotificationData import NotificationData
-from iot_api.user_api.models.NotificationPreferences import NotificationPreferences
-from iot_api.user_api.models.NotificationDataCollectorSettings import NotificationDataCollectorSettings
-from iot_api.user_api.models.NotificationAlertSettings import NotificationAlertSettings
-from iot_api.user_api.models.NotificationAdditionalEmail import NotificationAdditionalEmail
-from iot_api.user_api.models.NotificationAdditionalTelephoneNumber import NotificationAdditionalTelephoneNumber
+from iot_api.user_api.models import (
+    Notification, NotificationData, NotificationPreferences, NotificationDataCollectorSettings,
+    NotificationAlertSettings, NotificationAssetImportance, NotificationAdditionalEmail,
+    NotificationAdditionalTelephoneNumber, NotificationAssetTag
+)
+from iot_api.user_api.repository import AssetRepository, DeviceRepository, GatewayRepository
 #from iot_api.user_api.enums import WebUrl
 from iot_api.user_api.singletonURL import singletonURL
 
@@ -43,25 +42,19 @@ def subscribe_alert_consumers():
     thread = Thread(target = consumer)
     thread.setDaemon(True)
     thread.start()
-    print('Subscribed to alert events')
 
 def consumer():
-    connection = None
+    queue="alert_events"
     while(True):
         try:
-            queue = 'alert_events'
-            if not(connection and connection.is_open):
-                LOG.debug('Creating new connection')
-                connection = pika.BlockingConnection(rabbit_parameters)
+            LOG.debug('Creating new connection to queue alert_events')
             connection = pika.BlockingConnection(rabbit_parameters)
             channel = connection.channel()
             channel.queue_declare(queue=queue)
             channel.basic_consume(on_message_callback=handle_alert_events, queue=queue, auto_ack=True)
-            LOG.debug(f"consuming events from queue [{queue}]")
             channel.start_consuming()
         except Exception as e:
-            LOG.error(f"Error {e} on connection to queue {queue}. Reconnecting")
-            continue
+            LOG.error(f"Error on connection to queue alert_events:\n{e}")
 
 def handle_alert_events(ch, method, properties, body):
     event = None
@@ -85,12 +78,49 @@ def handle_alert_events(ch, method, properties, body):
         users = list(filter(lambda x:(x.blocked==False and x.deleted==False and x.active == True),users))
         emit_alert_event({'alert_id': alert_id}, organization_id)
 
+        try:
+            alert = Alert.find_one(alert_id)
+            device = None
+            gateway = None
+            if alert and alert.device_id:
+                device = AssetRepository.get_with(alert.device_id, "device")
+            if alert and alert.gateway_id:
+                gateway = AssetRepository.get_with(alert.gateway_id, "gateway")
+        except Exception as e:
+            LOG.error(f"Error {e} on alert assets search {alert}. Ignoring device/gateway related preferences")
+            device = None
+            gateway = None
+
         for user in users:
             alert_settings = NotificationAlertSettings.find_one(user.id)
             dc_settings = NotificationDataCollectorSettings.find_one(user_id = user.id, data_collector_id = data_collector_id)
             preferences = NotificationPreferences.find_one(user.id)
 
-            if alert_settings and getattr(alert_settings, alert_type.risk.lower()) and dc_settings and dc_settings.enabled:
+            # Check whether the alert assets are important for the user or not
+            try:
+                asset_importance = NotificationAssetImportance.get_with(user.id)
+                is_important_for_user = False
+                if asset_importance and device is not None:
+                    is_important_for_user = getattr(asset_importance, device.importance.value.lower())
+                elif asset_importance:
+                    is_important_for_user = getattr(asset_importance, gateway.importance.value.lower())
+            except Exception as e:
+                LOG.error(f"Error {e} on NotificationAssetImportance search for user {user.id}. Ignoring asset_importance preference")
+                is_important_for_user = True
+
+            # Check whether the alert assets contain all the tags in user notification preferences or not
+            try:
+                asset_tags = NotificationAssetTag.find_all_with(user_id = user.id)
+                tag_id_list = [asset_tag.tag_id for asset_tag in asset_tags]
+                if device:
+                    has_all_tags = DeviceRepository.has_all_tags(device.id, tag_id_list)
+                elif gateway:
+                    has_all_tags = GatewayRepository.has_all_tags(gateway.id, tag_id_list)
+            except Exception as e:
+                LOG.error(f"Error {e} on handling NotificationAssetTag preferences for user {user.id}. Ignoring this preference")
+                has_all_tags = True
+
+            if alert_settings and getattr(alert_settings, alert_type.risk.lower()) and is_important_for_user and has_all_tags and dc_settings and dc_settings.enabled:
                 data = NotificationData.find_one(user.id)
                 notification = Notification(type = 'NEW_ALERT', alert_id = alert_id, user_id=user.id, created_at = datetime.now())
                 notification.save()

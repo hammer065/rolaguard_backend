@@ -1,10 +1,12 @@
 from iot_api import bcrypt
 from iot_api.user_api.enums import RoleTypes
 from iot_api.user_api.models.DataCollector import *
+from iot_api.user_api import Error
 from iot_api import config
 
-from sqlalchemy import Table, Column, ForeignKey, func, desc, asc, cast, case, \
+from sqlalchemy import Table, Column, ForeignKey, func, desc, asc, cast, case, and_, or_, distinct, \
     DateTime, String, Integer, BigInteger, SmallInteger, Float, Boolean
+from sqlalchemy.types import JSON
 from sqlalchemy.orm import relationship
 
 import json
@@ -12,50 +14,6 @@ from datetime import datetime
 
 
 LOG = iot_logging.getLogger(__name__)
-
-
-class DeviceToOrganization(db.Model):
-    __tablename__ = "device_to_organization"
-
-    device_id = db.Column(db.BigInteger, db.ForeignKey(
-        "device.id"), primary_key=True)
-    organization_id = db.Column(db.BigInteger, db.ForeignKey(
-        "organization.id"), primary_key=True)
-
-    def save_to_db(self):
-        db.session.add(self)
-        db.session.commit()
-
-    def delete_from_db(self):
-        db.session.delete(self)
-        db.session.commit()
-
-    @classmethod
-    def find_all_device_id_by_organization_id(cls, organization_id):
-        return cls.query.filter_by(organization_id=organization_id).all()
-
-    @classmethod
-    def get_count_device_id_by_organization_id(cls, organization_id):
-        return cls.query.filter_by(organization_id=organization_id).count()
-
-    @classmethod
-    def find_all_organization_id_by_device_id(cls, device_id):
-        return cls.query.filter_by(device_id=device_id).all()
-
-    @classmethod
-    def find_by_device_id_and_by_organization_id(cls, device_id, organization_id):
-        return cls.query.filter_by(device_id=device_id, organization_id=organization_id).first()
-
-    @classmethod
-    def return_all(cls, json=True):
-        if json:
-            return {"device_to_organization": list(map(lambda organization: organization.to_json(), cls.query.all()))}
-        else:
-            return cls.query.all()
-
-    @classmethod
-    def get_count_all(cls):
-        return cls.query.count()
 
 
 class Organization(db.Model):
@@ -66,7 +24,6 @@ class Organization(db.Model):
     country = db.Column(db.String(120))
     region = db.Column(db.String(120))
     users = db.relationship("User", backref="organization", lazy=True)
-    devices = db.relationship("DeviceToOrganization", backref="organization")
     
     def to_json(self):
         return {
@@ -318,22 +275,6 @@ class UserToUserRole(db.Model):
         return cls.query.filter_by(user_id=user_id, user_role_id=user_role_id).first()
 
 
-class RevokedTokenModel(db.Model):
-    __tablename__ = "revoked_tokens"
-
-    id = db.Column(db.BigInteger, primary_key=True)
-    jti = db.Column(db.String(120))
-
-    def add(self):
-        db.session.add(self)
-        db.session.commit()
-
-    @classmethod
-    def is_jti_blacklisted(cls, jti):
-        query = cls.query.filter_by(jti=jti).first()
-        return bool(query)
-
-
 class AccountActivation(db.Model):
     __tablename__ = "account_activation"
 
@@ -379,120 +320,14 @@ class AccountActivation(db.Model):
         return cls.query.filter_by(user_id=user_id).order_by(desc(AccountActivation.creation_date))
 
 
-class PasswordReset(db.Model):
-    __tablename__ = "password_reset"
-
-    id = db.Column(db.BigInteger, primary_key=True)
-    user_id = db.Column(db.BigInteger, db.ForeignKey(
-        "iot_user.id"), nullable=False)
-    token = db.Column(db.String(500), nullable=False)
-    creation_date = db.Column(db.DateTime(timezone=True), nullable=False)
-    active = db.Column(db.Boolean, nullable=False, default=True)
-
-    def to_json(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'token': self.token,
-            'creation_date': self.creation_date,
-            'active': self.active
-        }
-
-    def save_to_db(self):
-        db.session.add(self)
-        db.session.commit()
-
-    def update_to_db(self):
-        db.session.commit()
-
-    def delete_from_db(self):
-        db.session.delete(self)
-        db.session.commit()
-
-    @classmethod
-    def find_by_token(cls, token):
-        return cls.query.filter_by(token=token, active=True).first()
-
-    @classmethod
-    def find_active_tokens_by_user_id(cls, user_id):
-        return cls.query.filter_by(user_id=user_id, active=True).all()
-    
-
-class LoginAttempts(db.Model):
-    __tablename__ = "login_attempts"
-
-    id = db.Column(db.BigInteger, primary_key=True)
-    user_id = db.Column(db.BigInteger, db.ForeignKey("iot_user.id"), nullable=False)
-    attempts = db.Column(db.Integer, nullable=False, default=True)
-    last_attempt = db.Column(db.DateTime(timezone=True), nullable=False)
-
-    def to_json(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'attempts': self.attempts,
-            'last_attempt': self.last_attempt
-        }
-
-    def save_to_db(self):
-        db.session.add(self)
-        db.session.commit()
-
-    def update_to_db(self):
-        db.session.commit()
-
-    def delete_from_db(self):
-        db.session.delete(self)
-        db.session.commit()
-
-    @classmethod
-    def find_by_user(cls, user_id):
-        return cls.query.filter_by(user_id=user_id).first()
+class AlertAssetType(Enum):
+    DEVICE = 'DEVICE'
+    GATEWAY = 'GATEWAY'
+    BOTH = 'BOTH'
+    NONE = 'NONE'
+    LOOK_IN_ALERT_PARAMS = 'LOOK_IN_ALERT_PARAMS'
 
 
-class ChangeEmailRequests(db.Model):
-    __tablename__ = "change_email_requests"
-
-    id = db.Column(db.BigInteger, primary_key=True)
-    user_id = db.Column(db.BigInteger, db.ForeignKey(
-        "iot_user.id"), nullable=False)
-    new_email = db.Column(db.String(120), nullable=False)
-    old_email = db.Column(db.String(120), nullable=False)
-    token = db.Column(db.String(500), nullable=False)
-    creation_date = db.Column(db.DateTime(timezone=True), nullable=False)
-    active = db.Column(db.Boolean, nullable=False, default=True)
-
-    def to_json(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'new_email': self.new_email,
-            'old_email': self.new_email,
-            'token': self.token,
-            'creation_date': self.creation_date,
-            'active': self.active
-        }
-
-    def save_to_db(self):
-        db.session.add(self)
-        db.session.commit()
-
-    def update_to_db(self):
-        db.session.commit()
-
-    def delete_from_db(self):
-        db.session.delete(self)
-        db.session.commit()
-
-    @classmethod
-    def find_by_token(cls, token):
-        return cls.query.filter_by(token=token, active=True).first()
-
-    @classmethod
-    def find_active_tokens_by_user_id(cls, user_id):
-        return cls.query.filter_by(user_id=user_id, active=True).all()
-
-        
 class AlertType(db.Model):
     __tablename__ = 'alert_type'
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -505,6 +340,7 @@ class AlertType(db.Model):
     technical_description = Column(String(3000), nullable=True)
     recommended_action = Column(String(3000), nullable=True)
     quarantine_timeout = Column(Integer, nullable=True, default=0)
+    for_asset_type = Column(SQLEnum(AlertAssetType))
 
     def to_json(self):
         return {
@@ -576,6 +412,8 @@ class Alert(db.Model):
     resolved_by = relationship("User", lazy="joined")
     alert_type = relationship("AlertType", lazy="joined")
     data_collector = relationship("DataCollector", lazy="joined")
+    device = relationship("Device", lazy="joined")
+    gateway = relationship("Gateway", lazy="joined")
 
     def to_json(self):
         parsed_user = self.resolved_by.to_short_info_json() if self.resolved_by else None
@@ -594,7 +432,8 @@ class Alert(db.Model):
             'resolved_at': None if self.resolved_at is None else "{}".format(self.resolved_at),
             'resolution_comment': self.resolution_comment,
             'resolved_by_id': self.resolved_by_id,
-            'resolved_by': parsed_user
+            'resolved_by': parsed_user,
+            'asset_importance': self.get_asset_importance()
         }
 
     def to_count_json(self):
@@ -603,6 +442,15 @@ class Alert(db.Model):
             'type': self.type,
             'created_at': "{}".format(self.created_at)
         }
+
+    def get_asset_importance(self):
+        if self.device:
+            asset_importance = self.device.importance.value
+        elif self.gateway:
+            asset_importance = self.gateway.importance.value
+        else:
+            asset_importance = None
+        return asset_importance
 
     @classmethod
     def find_one(cls, id):
@@ -646,6 +494,79 @@ class Alert(db.Model):
             LOG.error(e)
 
     @classmethod
+    def find_with(cls, organization_id, since, until, types, resolved, risks, order_by, page, size, device_id=None, gateway_id=None, asset_type=None):
+        AlertTypeExplicit = db.aliased(AlertType)
+        AlertTypeImplicit = db.aliased(AlertType)
+
+        if asset_type == 'device':
+            alert_asset_type = AlertAssetType.DEVICE
+        elif asset_type == 'gateway':
+            alert_asset_type = AlertAssetType.GATEWAY
+        elif asset_type is None:
+            alert_asset_type = AlertAssetType.BOTH
+        else:
+            raise Error.BadRequest(f"Alert.find_with called with asset_type = {asset_type}")
+
+        query = db.session.query(Alert)\
+                .join(DataCollector)\
+                .join(AlertTypeExplicit, AlertTypeExplicit.code == Alert.type)\
+                .join(AlertTypeImplicit, or_(
+                    AlertTypeImplicit.code == AlertTypeExplicit.code,
+                    AlertTypeImplicit.code == cast(Alert.parameters, JSON)['alert_solved_type'].as_string(),
+                ))\
+                .filter(DataCollector.organization_id == organization_id)\
+                .filter(cls.show == True)
+
+        if device_id is not None:
+            query = query.filter(cls.device_id == device_id)
+        if gateway_id is not None:
+            query = query.filter(cls.gateway_id == gateway_id)
+        
+        if since:
+            query = query.filter(cls.created_at >= since)
+        if until:
+            query = query.filter(cls.created_at <= until)
+        if types and len(types) > 0:
+            query = query.filter(cls.type.in_(types))
+        if resolved is not None:
+            if resolved:
+                query = query.filter(cls.resolved_at != None)
+            else:
+                query = query.filter(cls.resolved_at == None)
+        if risks and len(risks) > 0:
+            query = query.filter(AlertTypeExplicit.risk.in_(risks))
+
+        #Get only alerts of types that correlates with the value of the param alert_asset_type
+        if alert_asset_type == AlertAssetType.BOTH:
+            valid_types = [AlertAssetType.BOTH, AlertAssetType.DEVICE, AlertAssetType.GATEWAY]
+        elif alert_asset_type == AlertAssetType.DEVICE or alert_asset_type == AlertAssetType.GATEWAY:
+            valid_types = [AlertAssetType.BOTH, alert_asset_type]
+        else:
+            valid_types = [alert_asset_type]
+
+        query = query.filter(or_(
+            AlertTypeExplicit.for_asset_type.in_(valid_types),
+            and_(
+                AlertTypeExplicit.for_asset_type == AlertAssetType.LOOK_IN_ALERT_PARAMS,
+                AlertTypeImplicit.for_asset_type.in_(valid_types)
+            )
+        ))
+
+        if order_by:
+            order_field = order_by[0]
+            order_direction = order_by[1]
+            if 'ASC' == order_direction:
+                query = query.order_by(asc(getattr(cls, order_field)))
+            else:
+                query = query.order_by(desc(getattr(cls, order_field)))
+        else:
+            query = query.order_by(desc(cls.created_at)) # newest first if no order_by parameter is specified
+        if page and size:
+            return query.paginate(page=page, per_page=size, error_out=config.ERROR_OUT, max_per_page=config.MAX_PER_PAGE)
+        
+        return query.all()
+
+    @classmethod
     def count(cls, organization_id, since, until, types, resolved, risks, data_collectors):
         try:
             query = db.session.query(func.count(1).label('count'))\
@@ -669,7 +590,6 @@ class Alert(db.Model):
             if data_collectors and len(data_collectors) > 0:
                 query = query.filter(cls.data_collector_id.in_(data_collectors))
 
-            LOG.debug(f"count: {query}")
             return query.scalar()
         except Exception as e:
             LOG.error(e)
@@ -786,6 +706,11 @@ class Alert(db.Model):
             LOG.error(e)
 
 
+class AssetImportance(Enum):
+    LOW = 'LOW'
+    MEDIUM = 'MEDIUM'
+    HIGH = 'HIGH'
+
 class Gateway(db.Model):
     __tablename__ = 'gateway'
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -797,8 +722,33 @@ class Gateway(db.Model):
     data_collector_id = Column(BigInteger, db.ForeignKey("data_collector.id"), nullable=False)
     organization_id = Column(BigInteger, db.ForeignKey("organization.id"), nullable=False)
     connected = Column(Boolean, nullable=False, default=True)
-    last_activity = Column(DateTime(timezone=True), nullable=False) 
+    last_activity = Column(DateTime(timezone=True), nullable=False)
+    activity_freq = Column(Float, nullable=True)
+    npackets_up = Column(BigInteger, nullable=False, default=0)
+    npackets_down = Column(BigInteger, nullable=False, default=0)
+    importance = Column(SQLEnum(AssetImportance))
+
+    def to_json(self):
+         return {
+            'id': self.id,
+            'gw_hex_id': self.gw_hex_id,
+            'name': self.name,
+            'vendor': self.vendor,
+            'location': {
+                'latitude': self.location_latitude,
+                'longitude': self.location_longitude
+            },
+            'data_collector_id': self.data_collector_id,
+            'organization_id': self.organization_id,
+            'connected': self.connected,
+            'last_activity': "{}".format(self.last_activity),
+            'activity_freq': self.activity_freq,
+            'importance': self.importance.value,
+            'npackets_up': self.npackets_up,
+            'npackets_down': self.npackets_down
+        }
     
+
 class Device(db.Model):
     __tablename__ = 'device'
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -808,6 +758,8 @@ class Device(db.Model):
     app_name = Column(String, nullable=True)
     join_eui = Column(String(16), nullable=True)
     organization_id = Column(BigInteger, ForeignKey("organization.id"), nullable=False)
+    data_collector_id = Column(BigInteger, db.ForeignKey("data_collector.id"), nullable=False)
+    importance = Column(SQLEnum(AssetImportance))
 
     repeated_dev_nonce = Column(Boolean, nullable=True)
     join_request_counter = Column(Integer, nullable=False, default=0)
@@ -819,15 +771,29 @@ class Device(db.Model):
     first_up_timestamp = Column(db.DateTime(timezone=True), nullable=True)
     last_up_timestamp = Column(DateTime(timezone=True), nullable=True)
 
+    pending_first_connection = Column(Boolean, nullable=False, default=True)
     connected = Column(Boolean, nullable=False, default=True)
     last_activity = Column(DateTime(timezone=True), nullable=True)
     activity_freq = Column(Float, nullable=True)
+    npackets_up = Column(BigInteger, nullable=False, default=0)
+    npackets_down = Column(BigInteger, nullable=False, default=0)
+    npackets_lost = Column(Float, nullable=False, default=0)
+    max_rssi = Column(Float, nullable=True)
+    max_lsnr = Column(Float, nullable=True)
+    ngateways_connected_to = Column(BigInteger, nullable=False, default=0)
+    payload_size = Column(BigInteger, nullable=True)
+
+    last_packets_list = Column(String(4096), nullable=True, default='[]')
 
     def to_json(self):
         return {
             'id': self.id,
             'dev_eui': self.dev_eui,
+            'name': self.name,
+            'vendor': self.vendor,
+            'app_name': self.app_name,
             'join_eui': self.join_eui,
+            'data_collector_id': self.data_collector_id,
             'organization_id': self.organization_id,
             'first_up_timestamp': "{}".format(self.first_up_timestamp),
             'last_up_timestamp': "{}".format(self.last_up_timestamp),
@@ -837,7 +803,16 @@ class Device(db.Model):
             'has_joined': self.has_joined,
             'join_inferred': self.join_inferred,
             'is_otaa': self.is_otaa,
-            'last_packet_id': self.last_packet_id
+            'last_packet_id': self.last_packet_id,
+            'connected': self.connected,
+            'last_activity': "{}".format(self.last_activity),
+            'activity_freq': self.activity_freq,
+            'importance': self.importance.value,
+            'npackets_up': self.npackets_up,
+            'npackets_down': self.npackets_down,
+            'npackets_lost': self.npackets_lost,
+            'max_rssi': self.max_rssi,
+            'pending_first_connection': self.pending_first_connection
         }
 
     @classmethod
@@ -876,24 +851,10 @@ class Device(db.Model):
         return query.all()
     
 
-class DevNonce(db.Model):
-    __tablename__ = 'dev_nonce'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    dev_nonce = Column(Integer, nullable=True)
-    device_id = Column(BigInteger, db.ForeignKey("device.id"), nullable=False)
-    packet_id = Column(BigInteger, db.ForeignKey("packet.id"), nullable=False)
-
-
 class GatewayToDevice(db.Model):
     __tablename__ = 'gateway_to_device'
     gateway_id = Column(BigInteger, db.ForeignKey("gateway.id"), nullable=False, primary_key=True)
     device_id = Column(BigInteger, db.ForeignKey("device.id"), nullable=False, primary_key=True)
-
-
-class GatewayToDeviceSession(db.Model):
-    __tablename__ = 'gateway_to_device_session'
-    gateway_id = Column(BigInteger, db.ForeignKey("gateway.id"), nullable=False, primary_key=True)
-    device_session_id = Column(BigInteger, db.ForeignKey("device_session.id"), nullable=False, primary_key=True)
 
 
 class DeviceSession(db.Model):
@@ -915,6 +876,7 @@ class DeviceSession(db.Model):
     last_up_timestamp = Column(DateTime(timezone=True), nullable=True)
     device_id = Column(BigInteger, ForeignKey("device.id"), nullable=True)
     organization_id = Column(BigInteger, ForeignKey("organization.id"), nullable=False)
+    data_collector_id = Column(BigInteger, db.ForeignKey("data_collector.id"), nullable=False)
     device_auth_data_id = Column(BigInteger, ForeignKey("device_auth_data.id"), nullable=True)
     last_packet_id = Column(BigInteger, ForeignKey("packet.id"), nullable=True)
 
@@ -1067,108 +1029,6 @@ class DeviceAuthData(db.Model):
     device_session_id = Column(BigInteger, ForeignKey("device_session.id"), nullable=True)
 
 
-class RowProcessed(db.Model):
-    __tablename__ = 'row_processed'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    last_row = Column(Integer, nullable=False)
-    analyzer = Column(String(20), nullable=False)
-
-
-class AppKey(db.Model):
-    __tablename__ = 'app_key'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    key = Column(String(32), nullable=False)
-    organization_id = Column(BigInteger, ForeignKey("organization.id"), nullable=True)
-
-
-class DataCollectorToDevice(db.Model):
-    __tablename__ = 'data_collector_to_device'
-    data_collector_id = Column(BigInteger, ForeignKey("data_collector.id"), nullable=False, primary_key=True)
-    device_id = Column(BigInteger, ForeignKey("device.id"), nullable=False, primary_key=True)
-
-
-class DataCollectorToDeviceSession(db.Model):
-    __tablename__ = 'data_collector_to_device_session'
-    data_collector_id = Column(BigInteger, ForeignKey("data_collector.id"), nullable=False, primary_key=True)
-    device_session_id = Column(BigInteger, ForeignKey("device_session.id"), nullable=False, primary_key=True)
-
-
-class StatsCounters(db.Model):
-    __tablename__ = 'stats_counters'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    hour = Column(DateTime(timezone=True), nullable=False)
-    packets_count = Column(BigInteger, nullable=False, default=0)
-    joins_count = Column(BigInteger, nullable=False, default=0)
-    alerts_count = Column(BigInteger, nullable=True)
-    devices_count = Column(BigInteger, nullable=True)
-    organization_id = Column(BigInteger, ForeignKey("organization.id"), nullable=False)
-    data_collector_id = Column(BigInteger, ForeignKey("data_collector.id"))
-
-    @classmethod
-    def find(cls, organization_id, since, until, data_collectors):
-        query = cls.group_by_hour(cls, organization_id, since, until, data_collectors)
-        return query.all()
-
-    def group_by_hour(cls, organization_id, since, until, data_collectors):
-        query = cls.query.filter(cls.organization_id == organization_id)
-        if since:
-            query = query.filter(cls.hour >= since)
-        if until:
-            query = query.filter(cls.hour <= until)
-        if data_collectors and len(data_collectors) > 0:
-            query = query.filter(cls.data_collector_id.in_(data_collectors))
-        query = query.with_entities(cast(func.sum(cls.alerts_count), Integer).label('alerts_count'),
-                                    cast(func.sum(cls.packets_count), Integer).label('packets_count'),
-                                    cast(func.sum(cls.devices_count), Integer).label('devices_count'),
-                                    cast(func.sum(cls.joins_count), Integer).label('joins_count'),
-                                    cls.hour)
-        query = query.group_by(cls.hour)
-        query = query.order_by(desc(cls.hour))
-        return query
-
-    @classmethod
-    def group_by_date(cls, organization_id, since, until, data_collectors):
-        query = db.session.query(func.date(cls.hour).label('date'),
-                                 cast(func.sum(cls.alerts_count), Integer).label('alerts_count'),
-                                 cast(func.sum(cls.packets_count), Integer).label('packets_count'),
-                                 cast(func.sum(cls.joins_count), Integer).label('joins_count'))\
-            .filter(cls.organization_id == organization_id)
-
-        if since:
-            query = query.filter(cls.hour >= since)
-        if until:
-            query = query.filter(cls.hour <= until)
-        if data_collectors and len(data_collectors) > 0:
-            query = query.filter(cls.data_collector_id.in_(data_collectors))
-        query = query.group_by(func.date(cls.hour)).order_by(desc(func.date(cls.hour)))
-        return query.all()
-
-    @classmethod
-    def max_devices_by_date(cls, organization_id, since, until, data_collectors):
-        sum_query = cls.group_by_hour(cls, organization_id, since, until, data_collectors).subquery()
-        max_query = sum_query.select().with_only_columns([func.date(sum_query.c.hour).label('date'), func.max(sum_query.c.devices_count).label('max_devices')])
-        query = max_query.group_by(max_query.c.date).order_by(max_query.c.date)
-        return db.session.execute(query).fetchall()
-
-    def to_json_for_packet(self):
-        return {
-            'hour': self.hour,
-            'count': self.packets_count
-        }
-
-    def to_json_for_join(self):
-        return {
-            'hour': self.hour,
-            'count': self.joins_count
-        }
-
-    def to_json_for_device(self):
-        return {
-            'hour': self.hour,
-            'count': self.devices_count
-        }
-
-
 class Params(db.Model):
     __tablename__ = 'params'
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -1180,63 +1040,9 @@ class Params(db.Model):
         return cls.query.one().url_base
 
 
-class SendMailAttempts(db.Model):
-    __tablename__ = "send_email_attempts"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("iot_user.id"), nullable=False)
-    attempts = Column(Integer, nullable=False, default=True)
-    # last_attempt = db.Column(db.DateTime(timezone=True), nullable=False)
-
-    def to_json(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'attempts': self.attempts
-            # 'last_attempt': self.last_attempt
-        }
-
-    def save_to_db(self):
-        db.session.add(self)
-        db.session.commit()
-
-    def update_to_db(self):
-        db.session.commit()
-
-    def delete_from_db(self):
-        db.session.delete(self)
-        db.session.commit()
-
-    @classmethod
-    def find_by_user(cls, user_id):
-        return cls.query.filter_by(user_id=user_id).first()
-
-
 class QuarantineResolutionReasonType(Enum):
     MANUAL = 'MANUAL'
     AUTOMATIC = 'AUTOMATIC'
-
-
-class GlobalData(db.Model):
-    __tablename__ = "global_data"
-
-    key = Column(String(120),nullable=False, primary_key=True)
-    value = Column(String(300), nullable=False)
-
-    def save_to_db(self):
-        db.session.add(self)
-        db.session.commit()
-
-    def update_to_db(self):
-        db.session.commit()
-
-    def delete_from_db(self):
-        db.session.delete(self)
-        db.session.commit()
-
-    @classmethod
-    def find_by_key(cls, key):
-        return cls.query.filter_by(key=key).first()
 
 
 class QuarantineResolutionReason(db.Model):
@@ -1279,6 +1085,8 @@ class Quarantine(db.Model):
     resolution_comment = Column(String(1024), nullable=True)
     # quarantine parameters (optional)
     parameters = Column(String(4096), nullable=True)
+    # device relationship
+    device_id = Column(BigInteger, ForeignKey("device.id"))
 
     alert = relationship("Alert", lazy="joined")
     #endregion
@@ -1290,9 +1098,10 @@ class Quarantine(db.Model):
             'organization_id': self.organization_id,
             'alert': self.alert.to_json(),
             'alert_type': self.alert.alert_type.to_json(),
-            'device_id': self.alert.device_id,
+            'device_id': self.device_id,
             'data_collector_id': data_collector.id,
             'data_collector_name': data_collector.name,
+            'parameters': json.loads(self.parameters if self.parameters is not None else '{}'),
             'since': f'{self.since}' if self.since else None,
             'last_checked': f'{self.last_checked}' if self.last_checked else None,
             'resolved_at': f'{self.resolved_at}' if self.resolved_at else None,
@@ -1340,8 +1149,40 @@ class Quarantine(db.Model):
         return query
 
     @classmethod
-    def find(cls, organization_id, since, until, alert_types, devices, risks, data_collectors, order_by, page, size):
+    def find(cls, organization_id, since, until, alert_types, devices, risks, data_collectors, order_by, page, size, gateway_id=None, asset_type=None):
         query = cls.get_list_query(organization_id, since, until, alert_types, devices, risks, data_collectors)
+
+        if gateway_id is not None:
+            query = query.filter(Alert.gateway_id == gateway_id)
+
+        #Get only issues of alerts whose type correlates with the value of the param alert_asset_type
+        if asset_type is not None:
+            if asset_type == 'device':
+                alert_asset_type = AlertAssetType.DEVICE
+            elif asset_type == 'gateway':
+                alert_asset_type = AlertAssetType.GATEWAY
+            else:
+                raise Error.BadRequest(f"Quarantine.find called with asset_type = {asset_type}")
+
+            if alert_asset_type == AlertAssetType.BOTH:
+                valid_types = [AlertAssetType.BOTH, AlertAssetType.DEVICE, AlertAssetType.GATEWAY]
+            elif alert_asset_type == AlertAssetType.DEVICE or alert_asset_type == AlertAssetType.GATEWAY:
+                valid_types = [AlertAssetType.BOTH, alert_asset_type]
+            else:
+                valid_types = [alert_asset_type]
+
+            AlertTypeImplicit = db.aliased(AlertType)
+            query = query.join(AlertTypeImplicit, or_(
+                        AlertTypeImplicit.code == AlertType.code,
+                        AlertTypeImplicit.code == cast(Alert.parameters, JSON)['alert_solved_type'].as_string(),
+                    ))\
+                    .filter(or_(
+                        AlertType.for_asset_type.in_(valid_types),
+                        and_(
+                            AlertType.for_asset_type == AlertAssetType.LOOK_IN_ALERT_PARAMS,
+                            AlertTypeImplicit.for_asset_type.in_(valid_types)
+                        )
+                    ))
 
         if order_by:
             order_field = order_by[0]

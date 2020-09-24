@@ -11,18 +11,19 @@ import iot_logging
 
 from threading import Thread
 from datetime import datetime, timedelta
-from marshmallow import ValidationError
 from urllib.parse import quote_plus
 
 from iot_api import bcrypt, mail, app
 from iot_api.user_api.model import User
 #from iot_api.user_api.enums import WebUrl
-from iot_api.user_api.models.NotificationPreferences import NotificationPreferences
-from iot_api.user_api.models.NotificationAlertSettings import NotificationAlertSettings
-from iot_api.user_api.models.NotificationDataCollectorSettings import NotificationDataCollectorSettings
-from iot_api.user_api.models.NotificationAdditionalEmail import NotificationAdditionalEmail
-from iot_api.user_api.models.NotificationAdditionalTelephoneNumber import NotificationAdditionalTelephoneNumber
-from iot_api.user_api.models.DataCollector import DataCollector
+from iot_api.user_api.models import (
+    NotificationPreferences, NotificationAlertSettings,
+    NotificationDataCollectorSettings, NotificationAdditionalEmail,
+    NotificationAdditionalTelephoneNumber, DataCollector,
+    NotificationAssetImportance
+)
+from iot_api.user_api.repository import NotificationPreferencesRepository
+from iot_api.user_api import Error
 
 from iot_api.user_api.schemas.notification_preferences_schema import NotificationPreferencesSchema
 
@@ -36,18 +37,17 @@ from email.mime.text import MIMEText
 
 LOG = iot_logging.getLogger(__name__)
 
-class NotificationPreferencesResource(Resource):
+class NotificationPreferencesAPI(Resource):
 
     @jwt_required
     def get(self):
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
-
-        if not user:
-            return None, 403
+        if not user: raise Error.Forbidden()
 
         preferences = NotificationPreferences.find_one(user.id)
         alert_settings = NotificationAlertSettings.find_one(user.id)
+        asset_importance = NotificationAssetImportance.get_with(user.id)
         dc_settings = NotificationDataCollectorSettings.find(user.id)
         emails = NotificationAdditionalEmail.find(user.id)
         phones = NotificationAdditionalTelephoneNumber.find(user.id)
@@ -58,40 +58,45 @@ class NotificationPreferencesResource(Resource):
         alert_settings = alert_settings.to_dict()
         dc_settings = [dc.to_dict() for dc in dc_settings]
 
+        if not asset_importance:
+            asset_importance = NotificationAssetImportance(user_id = user.id).save()
+
+        tag_list = NotificationPreferencesRepository.get_asset_tags(user.id)
+
         response = {
             'destinations': preferences,
             'risks': alert_settings,
-            'dataCollectors': dc_settings
+            'asset_importance': [
+                {
+                    'name': 'high',
+                    'enabled': asset_importance.high,
+                },
+                {
+                    'name': 'medium',
+                    'enabled': asset_importance.medium,
+                },
+                {
+                    'name': 'low',
+                    'enabled': asset_importance.low,
+                },
+            ],
+            'dataCollectors': dc_settings,
+            'asset_tags': [{
+                "id" : tag.id,
+                "name" : tag.name,
+                "color": tag.color
+            } for tag in tag_list]
         }
-
         return response, 200
 
     @jwt_required
     def put(self):
-
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
-
-        if not user:
-            return None, 403
+        if not user: raise Error.Forbidden()
 
         body = json.loads(request.data)
-
-        try:
-            parsed_result = NotificationPreferencesSchema().load(body)
-        except ValidationError as err:
-            LOG.error('Error parsing body: {0}'.format(err))
-            return err.messages, 400
-
-        if len(parsed_result.errors.keys()) > 0:
-            errors = []
-            for key in parsed_result.errors.keys():
-
-                errors.append(parsed_result.errors.get(key))
-            LOG.error('Error parsing body: {0}'.format(errors))
-            return errors , 400
-        
-        parsed_result = parsed_result.data
+        parsed_result = NotificationPreferencesSchema().load(body).data
         
         global activation_emails, activation_sms
         activation_emails = []
@@ -179,6 +184,20 @@ class NotificationPreferencesResource(Resource):
                     return {'error': 'Risk must be one these: high, medium, low, info'}, 400
                 setattr(nas, attr, risk.get('enabled'))
 
+            # Update asset importances
+            asset_importances = parsed_result.get('asset_importance')
+            nai = NotificationAssetImportance.get_with(user_id = user.id)
+            for importance in asset_importances:
+                attr = importance.get('name')
+                if attr not in ('high', 'medium', 'low'):
+                    raise Error.BadRequest('Asset importance name must be one these: high, medium, low. But it\'s: {0}'.format(attr))
+                setattr(nai, attr, importance.get('enabled'))
+
+            # Update asset tags
+            asset_tags = parsed_result.get('asset_tags')
+            tag_id_list = [tag.get('id') for tag in asset_tags]
+            NotificationPreferencesRepository.set_asset_tags(user.id, tag_id_list, False)
+
             # Update data collectors. Check if dc belongs to user organization
             data_collectors = parsed_result.get('data_collectors')
             for dcp in data_collectors:
@@ -207,7 +226,7 @@ class NotificationPreferencesResource(Resource):
             return {'error': 'Something went wrong'}, 500
 
 
-class NotificationEmailActivationResource(Resource):
+class NotificationEmailActivationAPI(Resource):
 
     def put(self, token):
         email = NotificationAdditionalEmail.find_one_by_token(token)
@@ -226,7 +245,7 @@ class NotificationEmailActivationResource(Resource):
         return {'email': email.email}, 200
 
 
-class NotificationPhoneActivationResource(Resource):
+class NotificationPhoneActivationAPI(Resource):
 
     def put(self, token):
         phone = NotificationAdditionalTelephoneNumber.find_one_by_token(token)
@@ -245,31 +264,32 @@ class NotificationPhoneActivationResource(Resource):
         return {'phone': phone.phone}, 200        
 
 def send_activation_emails():
-    with app.app_context():
-        server = smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT)
-        #server.set_debuglevel(1)
-        server.ehlo()
-        server.starttls()
-        #stmplib docs recommend calling ehlo() before & after starttls()
-        server.ehlo()
-        server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
-        single = singletonURL()
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = "RoLaGuard Email Confirmation"
-        msg['From'] = email.utils.formataddr((config.SMTP_SENDER_NAME, config.SMTP_SENDER))
+    if config.SEND_EMAILS:
+        with app.app_context():
+            server = smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT)
+            #server.set_debuglevel(1)
+            server.ehlo()
+            server.starttls()
+            #stmplib docs recommend calling ehlo() before & after starttls()
+            server.ehlo()
+            server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
+            single = singletonURL()
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = "RoLaGuard Email Confirmation"
+            msg['From'] = email.utils.formataddr((config.SMTP_SENDER_NAME, config.SMTP_SENDER))
 
-        for item in activation_emails:
-            token = item.get('token')
-            email_user = item.get('email')
-            full_url = single.getParam() + "notifications/email_activation/" + str(token)
-            print('init email sending')
-            msg['To'] = email_user
-            part = MIMEText(render_template(
-                'notification_activation.html', full_url=full_url),'html')
-            msg.attach(part)
-            server.sendmail(config.SMTP_SENDER,email_user, msg.as_string())
-            print("finished email sending")
-        server.close()    
+            for item in activation_emails:
+                token = item.get('token')
+                email_user = item.get('email')
+                full_url = single.getParam() + "notifications/email_activation/" + str(token)
+                print('init email sending')
+                msg['To'] = email_user
+                part = MIMEText(render_template(
+                    'notification_activation.html', full_url=full_url),'html')
+                msg.attach(part)
+                server.sendmail(config.SMTP_SENDER,email_user, msg.as_string())
+                print("finished email sending")
+            server.close()    
 
 def send_activation_sms():
     if config.SEND_SMS:

@@ -10,6 +10,7 @@ from iot_api.user_api.model import User, AlertType
 from iot_api.user_api.models.Policy import Policy
 from iot_api.user_api.models.DataCollector import DataCollector
 from iot_api.user_api.models.PolicyItem import PolicyItem
+from iot_api.user_api.repository import PolicyRepository
 
 from iot_api.user_api.schemas.policy_schema import PolicySchema, UpdatedPolicySchema
 
@@ -34,8 +35,17 @@ class PolicyListResource(Resource):
         page = request.args.get('page', default=1, type=int)
         size = request.args.get('size', default=20, type=int)
 
-        result = Policy.find_with_collectors(organization_id, None, None, page, size)
+        result = Policy.find(organization_id, None, None, page, size)
         headers = {'total-pages': result.pages, 'total-items': result.total}
+
+        for policy in result.items:
+            PolicyRepository.update_items(policy)
+
+            existing_type_codes = [item.alert_type_code for item in policy.items]
+            PolicyRepository.add_missing_items(policy.id, existing_type_codes)
+
+        Policy.add_data_collectors(organization_id=organization_id, policies=result.items)
+
         policies = [policy.to_dict() for policy in result.items]
 
         return policies, 200, headers

@@ -27,10 +27,11 @@ from iot_api import config
 from iot_api.user_api.enums import RoleTypes
 from iot_api.user_api.events.data_collector_events import emit_data_collector_event
 from iot_api.user_api.events.policy_events import emit_policy_event
-from iot_api.user_api.model import User, Organization, Device, RevokedTokenModel, AccountActivation, StatsCounters, \
-    PasswordReset, LoginAttempts, UserRole, UserToUserRole, ChangeEmailRequests, Alert, AlertType, Packet, \
-    SendMailAttempts, GlobalData, \
+from iot_api.user_api.model import User, Organization, Device, AccountActivation, \
+    UserRole, UserToUserRole, Alert, AlertType, Packet, \
     get_user_collector_ids
+from iot_api.user_api.models import ChangeEmailRequests, GlobalData, LoginAttempts, PasswordReset, \
+    RevokedTokenModel, SendMailAttempts, StatsCounters
 from iot_api.user_api.models.DataCollector import DataCollector, DataCollectorStatus
 from iot_api.user_api.models.DataCollectorLogEvent import DataCollectorLogEvent, DataCollectorLogEventType
 from iot_api.user_api.models.DataCollectorType import DataCollectorType
@@ -949,8 +950,8 @@ class Login(Resource):
                 )
                 login_attempts.save_to_db()
 
-            access_token = create_access_token(identity=user.username)
-            refresh_token = create_refresh_token(identity=user.username)
+            access_token = create_access_token(identity=user)
+            refresh_token = create_refresh_token(identity=user)
 
             return {
                 "message": "Logged in as {}".format(user.username),
@@ -1243,7 +1244,8 @@ class TokenRefresh(Resource):
 
     @jwt_refresh_token_required
     def post(self):
-        current_user = get_jwt_identity()
+        current_user_username = get_jwt_identity()
+        current_user = User.find_by_username(current_user_username)
         access_token = create_access_token(identity=current_user)
         return jsonify({"access_token": access_token})
 
@@ -2118,9 +2120,7 @@ class AlertsListCountAPI(Resource):
             if len(types) > 0 or resolved is not None or len(_risks) > 0:
                 counts = Alert.count_by_hour(organization_id, since, until, types, resolved, _risks)
                 counts = list(map(lambda item: {'count': item.count, 'hour': item.hour}, counts))
-                LOG.debug('count normal')
             else:
-                LOG.debug('stats counters')
                 counts = StatsCounters.find(organization_id, since, until, data_collectors)
                 counts = list(map(lambda item: {'count': item.alerts_count, 'hour': item.hour}, counts))
 

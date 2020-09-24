@@ -62,11 +62,15 @@ class Policy(db.Model):
         results = cls.find(organization_id, name, distinct_id, page, size)
 
         policies = [policy for policy in results.items]
-        for policy in policies:
-            policy.data_collectors = DataCollector.find_by_organization_id_and_policy_id(organization_id, policy.id)
+        cls.add_data_collectors(organization_id=organization_id, policies=policies)
 
         # Returning the object from SQLAlchemy - not the 'policies' list - because the caller needs the metadata.
         return results
+
+    @classmethod
+    def add_data_collectors(cls, organization_id, policies):
+        for policy in policies:
+            policy.data_collectors = DataCollector.find_by_organization_id_and_policy_id(organization_id, policy.id)
 
     @classmethod
     def find_one(cls, id, organization_id = None):
