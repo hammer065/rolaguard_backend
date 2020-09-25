@@ -58,6 +58,8 @@ class ResourceUsageInformationAPI(Resource):
             lsnr_values = [packet['lsnr'] for packet in packets if packet['lsnr'] is not None]
             rssi_values = [packet['rssi'] for packet in packets if packet['rssi'] is not None]
 
+        # Here the dev_addr is not returned to avoid a join between Device and DeviceSession,
+        # since it is already reported in the inventory endpoint.
         response = {
             'id': asset.id,
             'hex_id': asset.hex_id,
@@ -136,6 +138,7 @@ class ResourceUsageListAPI(Resource):
         assets = [{
             'id': dev.id,
             'hex_id': dev.hex_id,
+            'dev_addr': dev.dev_addr,
             'type': dev.type,
             'name': dev.name,
             'data_collector': dev.data_collector,

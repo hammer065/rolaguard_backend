@@ -6,7 +6,7 @@ from sqlalchemy.sql import select, expression, text, not_, and_
 
 from iot_api.user_api import db
 from iot_api.user_api.repository import DeviceRepository, GatewayRepository
-from iot_api.user_api.model import Device, Gateway, GatewayToDevice
+from iot_api.user_api.model import Device, Gateway, GatewayToDevice, DeviceSession
 from iot_api.user_api.models import DataCollector
 from iot_api.user_api import Error
 
@@ -99,6 +99,7 @@ def list_all(organization_id, page=None, size=None,
     dev_query = db.session.query(
         distinct(Device.id).label('id'),
         Device.dev_eui.label('hex_id'),
+        DeviceSession.dev_addr,
         expression.literal_column('\'Device\'').label('type'),
         Device.name,
         Device.app_name,
@@ -114,13 +115,16 @@ def list_all(organization_id, page=None, size=None,
         Device.payload_size,
         Device.ngateways_connected_to
         ).select_from(Device).\
+            join(DeviceSession).\
             join(DataCollector).\
             join(GatewayToDevice).\
             filter(Device.organization_id==organization_id).\
-            filter(Device.pending_first_connection==False)
+            filter(Device.pending_first_connection==False).\
+            filter(DeviceSession.connected)
     gtw_query = db.session.query(
         distinct(Gateway.id).label('id'),
         Gateway.gw_hex_id.label('hex_id'),
+        expression.null().label('dev_addr'),
         expression.literal_column('\'Gateway\'').label('type'),
         Gateway.name,
         expression.null().label('app_name'),
@@ -139,8 +143,6 @@ def list_all(organization_id, page=None, size=None,
             join(DataCollector).\
             join(GatewayToDevice).\
             filter(Gateway.organization_id == organization_id)
-    #TODO: add number of devices per gateway
-    #TODO: add number of sessions (distinct devAddr)
 
     queries = add_filters(
         dev_query = dev_query,

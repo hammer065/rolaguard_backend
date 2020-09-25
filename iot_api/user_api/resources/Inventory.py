@@ -29,6 +29,7 @@ class AssetInformationAPI(Resource):
         response = {
             'id' : asset.id,
             'hex_id' : asset.hex_id,
+            'dev_addr' : getattr(asset, 'dev_addr', None),
             'organization_id': asset.organization_id,
             'type' : asset.type,
             'name' : asset.name,
@@ -359,6 +360,8 @@ class AssetsListAPI(Resource):
             importances = request.args.getlist('importances[]', type=AssetImportance)
         )
 
+        # Dev_addr is not returned here because is already in the used in the inventory section,
+        # but it is returned in the AssetInformation endpoint for the asset 360 view.
         devices = [{
             'id' : dev.id,
             'hex_id' : dev.hex_id,
