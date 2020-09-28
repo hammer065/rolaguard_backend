@@ -6,6 +6,16 @@ log = getLogger(__name__)
 MAX_PER_PAGE = 1000
 ERROR_OUT = False
 
+try:
+    BRAND_NAME = os.environ['BRAND_NAME']
+except:
+    BRAND_NAME = "RoLaGuard CE"
+try:
+    BRAND_URL = os.environ['BRAND_URL']
+except:
+    BRAND_URL = "localhost:30000"
+log.info(f'Using "{BRAND_NAME}" as brand and {BRAND_URL} as URL')
+
 # Features
 try:
     SEND_EMAILS = True if os.environ['SEND_EMAILS'] == "True" else False

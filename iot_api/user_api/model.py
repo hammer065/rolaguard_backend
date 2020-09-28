@@ -1033,17 +1033,6 @@ class DeviceAuthData(db.Model):
     device_session_id = Column(BigInteger, ForeignKey("device_session.id"), nullable=True)
 
 
-class Params(db.Model):
-    __tablename__ = 'params'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    url_base = Column(String(120), nullable=False)
-
-    @classmethod
-    def get_url_base(cls):
-        # print("db query")
-        return cls.query.one().url_base
-
-
 class QuarantineResolutionReasonType(Enum):
     MANUAL = 'MANUAL'
     AUTOMATIC = 'AUTOMATIC'
