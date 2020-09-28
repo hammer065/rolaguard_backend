@@ -80,6 +80,7 @@ def list_all(organization_id, page=None, size=None,
         Device.vendor,
         Device.importance,
         Device.connected,
+        Device.first_activity,
         Device.last_activity
         ).select_from(Device).\
             join(DataCollector).\
@@ -99,6 +100,7 @@ def list_all(organization_id, page=None, size=None,
         Gateway.vendor,
         Gateway.importance,
         Gateway.connected,
+        Gateway.first_activity,
         Gateway.last_activity
         ).select_from(Gateway).\
             join(DataCollector).\

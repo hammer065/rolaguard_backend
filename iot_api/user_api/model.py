@@ -722,6 +722,7 @@ class Gateway(db.Model):
     data_collector_id = Column(BigInteger, db.ForeignKey("data_collector.id"), nullable=False)
     organization_id = Column(BigInteger, db.ForeignKey("organization.id"), nullable=False)
     connected = Column(Boolean, nullable=False, default=True)
+    first_activity = Column(DateTime(timezone=True), nullable=True)
     last_activity = Column(DateTime(timezone=True), nullable=False)
     activity_freq = Column(Float, nullable=True)
     npackets_up = Column(BigInteger, nullable=False, default=0)
@@ -773,6 +774,7 @@ class Device(db.Model):
 
     pending_first_connection = Column(Boolean, nullable=False, default=True)
     connected = Column(Boolean, nullable=False, default=True)
+    first_activity = Column(DateTime(timezone=True), nullable=True)
     last_activity = Column(DateTime(timezone=True), nullable=True)
     activity_freq = Column(Float, nullable=True)
     activity_freq_variance = Column(Float, nullable=False, default=0)

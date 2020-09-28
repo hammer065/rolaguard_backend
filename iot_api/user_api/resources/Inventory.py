@@ -39,7 +39,8 @@ class AssetInformationAPI(Resource):
             'vendor' : asset.vendor,
             'app_name' : getattr(asset, "app_name", None),
             'connected' : asset.connected,
-            'last_activity' : str(asset.last_activity),
+            'last_activity' : asset.last_activity.strftime(DATE_FORMAT),
+            'first_activity' : asset.last_activity.strftime(DATE_FORMAT),
             'location' : {
                 'latitude' : getattr(asset, "location_latitude", None),
                 'longitude': getattr(asset, "location_longitude", None)
@@ -375,6 +376,7 @@ class AssetsListAPI(Resource):
             'importance' : dev.importance.value,
             'connected' : dev.connected,
             'last_activity' : calendar.timegm(dev.last_activity.timetuple()),
+            'first_activity' : calendar.timegm(dev.first_activity.timetuple()),
             'location' : {'latitude' : dev.location_latitude,
                           'longitude': dev.location_longitude},
             'tags' : [{"id" : tag.id,
