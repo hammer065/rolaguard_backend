@@ -76,3 +76,6 @@ except Exception as e:
     sys.exit(1)
 
 PROPAGATE_EXCEPTIONS = True
+
+# Global date format
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S%z"
