@@ -775,6 +775,7 @@ class Device(db.Model):
     connected = Column(Boolean, nullable=False, default=True)
     last_activity = Column(DateTime(timezone=True), nullable=True)
     activity_freq = Column(Float, nullable=True)
+    activity_freq_variance = Column(Float, nullable=False, default=0)
     npackets_up = Column(BigInteger, nullable=False, default=0)
     npackets_down = Column(BigInteger, nullable=False, default=0)
     npackets_lost = Column(Float, nullable=False, default=0)
@@ -807,6 +808,7 @@ class Device(db.Model):
             'connected': self.connected,
             'last_activity': "{}".format(self.last_activity),
             'activity_freq': self.activity_freq,
+            'activity_freq_variance': self.activity_freq_variance,
             'importance': self.importance.value,
             'npackets_up': self.npackets_up,
             'npackets_down': self.npackets_down,

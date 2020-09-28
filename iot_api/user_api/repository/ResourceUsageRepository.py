@@ -7,7 +7,7 @@ from sqlalchemy.sql import select, expression, text, not_, and_
 from iot_api.user_api import db
 from iot_api.user_api.repository import DeviceRepository, GatewayRepository
 from iot_api.user_api.model import Device, Gateway, GatewayToDevice, DeviceSession
-from iot_api.user_api.models import DataCollector
+from iot_api.user_api.models import DataCollector, Policy, PolicyItem
 from iot_api.user_api import Error
 
 from collections import defaultdict
@@ -31,9 +31,11 @@ def get_with(asset_id, asset_type, organization_id=None):
             Device.name,
             Device.app_name,
             DataCollector.name.label('data_collector'),
+            PolicyItem.parameters.label('policy_parameters'),
             Device.connected.label('connected'),
             Device.last_activity,
             Device.activity_freq,
+            Device.activity_freq_variance,
             Device.npackets_up,
             Device.npackets_down,
             Device.npackets_lost.label('packet_loss'),
@@ -45,6 +47,8 @@ def get_with(asset_id, asset_type, organization_id=None):
             ).join(DataCollector).\
                 join(GatewayToDevice).\
                 filter(Device.id == asset_id).\
+                join(Policy, Policy.id == DataCollector.policy_id).\
+                join(PolicyItem, and_(Policy.id == PolicyItem.policy_id, PolicyItem.alert_type_code == 'LAF-401')).\
                 first()
     elif asset_type=="gateway":
         asset = db.session.query(
@@ -55,9 +59,11 @@ def get_with(asset_id, asset_type, organization_id=None):
             Gateway.name,
             expression.null().label('app_name'),
             DataCollector.name.label('data_collector'),
+            expression.null().label('policy_parameters'),
             Gateway.connected.label('connected'),
             Gateway.last_activity,
             Gateway.activity_freq,
+            cast(expression.null(), Float).label('activity_freq_variance'),
             Gateway.npackets_up,
             Gateway.npackets_down,
             cast(expression.null(), Float).label('packet_loss'),
@@ -104,9 +110,11 @@ def list_all(organization_id, page=None, size=None,
         Device.name,
         Device.app_name,
         DataCollector.name.label('data_collector'),
+        PolicyItem.parameters.label('policy_parameters'),
         Device.connected.label('connected'),
         Device.last_activity,
         Device.activity_freq,
+        Device.activity_freq_variance,
         Device.npackets_up,
         Device.npackets_down,
         Device.npackets_lost.label('packet_loss'),
@@ -120,7 +128,10 @@ def list_all(organization_id, page=None, size=None,
             join(GatewayToDevice).\
             filter(Device.organization_id==organization_id).\
             filter(Device.pending_first_connection==False).\
-            filter(DeviceSession.connected)
+            filter(DeviceSession.connected).\
+            join(Policy, Policy.id == DataCollector.policy_id).\
+            join(PolicyItem, and_(Policy.id == PolicyItem.policy_id, PolicyItem.alert_type_code == 'LAF-401'))
+            
     gtw_query = db.session.query(
         distinct(Gateway.id).label('id'),
         Gateway.gw_hex_id.label('hex_id'),
@@ -129,9 +140,11 @@ def list_all(organization_id, page=None, size=None,
         Gateway.name,
         expression.null().label('app_name'),
         DataCollector.name.label('data_collector'),
+        expression.null().label('policy_parameters'),
         Gateway.connected.label('connected'),
         Gateway.last_activity,
         Gateway.activity_freq,
+        cast(expression.null(), Float).label('activity_freq_variance'),
         Gateway.npackets_up,
         Gateway.npackets_down,
         cast(expression.null(), Float).label('packet_loss'),
