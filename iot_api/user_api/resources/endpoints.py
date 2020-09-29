@@ -1090,14 +1090,14 @@ class Register(Resource):
             user_roles = []
             organization_id = None
 
-            if admin_user_identity is None:
+            if admin_user_identity is None: # Creating new user from land page
                 user_roles = [2]
-            else:
+            else: # Creating new user into an existing organization
                 if not "user_roles" in data or data["user_roles"] is None or len(data["user_roles"]) == 0:
                     return bad_request("Missing user_roles attribute.")
                 if len(data["user_roles"]) > 1:
                     return bad_request("Cannot assign more than one role")
-                if data["user_roles"][0] not in [1, 2]:
+                if int(data["user_roles"][0]) not in [1, 2]:
                     return bad_request("Cannot assign this user role")
 
 
