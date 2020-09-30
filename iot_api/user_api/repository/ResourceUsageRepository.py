@@ -103,9 +103,9 @@ def list_all(organization_id, page=None, size=None,
     """
     # Build two queries, one for devices and one for gateways
     dev_query = db.session.query(
-        distinct(Device.id).label('id'),
+        Device.id.label('id'),
         Device.dev_eui.label('hex_id'),
-        DeviceSession.dev_addr,
+        DeviceSession.dev_addr.label('dev_addr'),
         expression.literal_column('\'Device\'').label('type'),
         Device.name,
         Device.app_name,
@@ -123,15 +123,16 @@ def list_all(organization_id, page=None, size=None,
         Device.payload_size,
         Device.ngateways_connected_to
         ).select_from(Device).\
-            join(DeviceSession).\
-            join(DataCollector).\
-            join(GatewayToDevice).\
             filter(Device.organization_id==organization_id).\
             filter(Device.pending_first_connection==False).\
-            filter(DeviceSession.connected).\
+            join(DeviceSession, Device.id == DeviceSession.device_id).\
+            join(DataCollector, Device.data_collector_id == DataCollector.id).\
+            join(GatewayToDevice, Device.id == GatewayToDevice.device_id).\
             join(Policy, Policy.id == DataCollector.policy_id).\
-            join(PolicyItem, and_(Policy.id == PolicyItem.policy_id, PolicyItem.alert_type_code == 'LAF-401'))
-            
+            join(PolicyItem, and_(Policy.id == PolicyItem.policy_id, PolicyItem.alert_type_code == 'LAF-401')).\
+            order_by(Device.id, DeviceSession.last_activity).\
+            distinct(Device.id)
+
     gtw_query = db.session.query(
         distinct(Gateway.id).label('id'),
         Gateway.gw_hex_id.label('hex_id'),
