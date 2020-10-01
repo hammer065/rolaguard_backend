@@ -935,7 +935,7 @@ class Packet(db.Model):
     def to_json(self):
         return {
             'id': self.id,
-            'date': "{}".format(self.date),
+            'date': self.date.strftime(config.DATE_FORMAT),
             'topic': self.topic,
             'data_collector_id': self.data_collector_id,
             'organization_id': self.organization_id,
