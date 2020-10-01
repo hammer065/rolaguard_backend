@@ -20,7 +20,6 @@ from iot_api.user_api.models import (
 )
 from iot_api.user_api.repository import AssetRepository, DeviceRepository, GatewayRepository
 #from iot_api.user_api.enums import WebUrl
-from iot_api.user_api.singletonURL import singletonURL
 
 from iot_api.user_api.websocket.notifications import emit_notification_event
 from iot_api.user_api.websocket.alerts import emit_alert_event
@@ -150,18 +149,22 @@ def handle_alert_events(ch, method, properties, body):
         if config.SEND_SMS:             
             sns.publish(
                 PhoneNumber=phone,
-                Message='New notification from RoLaGuard. There\'s a new alert: {alert_type}. You can check this accessing to https://rolaguard.com'.format(alert_type=alert_type.name),
+                Message=f'New notification from {config.BRAND_NAME}. There\'s a new alert: {alert_type.name}. You can check this accessing to {config.BRAND_URL}',
             )
 
     if len(emails) > 0:
         with app.app_context():
-            single = singletonURL()
-            print('init email sending')
             msg = MIMEMultipart('alternative')
-            msg['Subject'] = "New RoLaGuard Notification"
+            msg['Subject'] = f"New {config.BRAND_NAME} Notification"
             msg['From'] = email.utils.formataddr((config.SMTP_SENDER_NAME, config.SMTP_SENDER))
-            part = MIMEText(render_template(
-                'notification.html', full_url=single.getParam(),alert_type=alert_type.name),'html')
+            part = MIMEText(
+                render_template(
+                    'notification.html',
+                    brand_name=config.BRAND_NAME,
+                    full_url=config.BRAND_URL,
+                    alert_type=alert_type.name
+                    ), 'html'
+                )
             msg.attach(part)
             server = smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT)
             #server.set_debuglevel(1)
@@ -171,7 +174,6 @@ def handle_alert_events(ch, method, properties, body):
             server.ehlo()
             server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
 
-            print(emails)
             for email_user in emails:
                 try:
                     msg['To'] = email_user
@@ -180,6 +182,5 @@ def handle_alert_events(ch, method, properties, body):
                     server.close()
                     print(exc)
             server.close()  
-            print("finished email sending")
 
 subscribe_alert_consumers()

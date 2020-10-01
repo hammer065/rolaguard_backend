@@ -13,6 +13,7 @@ from iot_api.user_api.Utils import is_system
 from iot_api.user_api.JwtUtils import admin_regular_allowed
 from iot_api.user_api.repository import AssetRepository, TagRepository, GatewayToDeviceRepository
 from iot_api.user_api import Error
+from iot_api.config import DATE_FORMAT
 
 class AssetInformationAPI(Resource):
     """ Endpoint to get information about an asset of a given type
@@ -29,6 +30,7 @@ class AssetInformationAPI(Resource):
         response = {
             'id' : asset.id,
             'hex_id' : asset.hex_id,
+            'dev_addr' : getattr(asset, 'dev_addr', None),
             'organization_id': asset.organization_id,
             'type' : asset.type,
             'name' : asset.name,
@@ -37,7 +39,8 @@ class AssetInformationAPI(Resource):
             'vendor' : asset.vendor,
             'app_name' : getattr(asset, "app_name", None),
             'connected' : asset.connected,
-            'last_activity' : str(asset.last_activity),
+            'last_activity' : asset.last_activity.strftime(DATE_FORMAT),
+            'first_activity' : asset.last_activity.strftime(DATE_FORMAT),
             'location' : {
                 'latitude' : getattr(asset, "location_latitude", None),
                 'longitude': getattr(asset, "location_longitude", None)
@@ -131,13 +134,13 @@ class AssetAlertsAPI(Resource):
             try:
                 page = int(page)
             except Exception:
-                return Error.BadRequest('no valid page value')
+                raise Error.BadRequest('no valid page value')
 
         if size:
             try:
                 size = int(size)
             except Exception:
-                return Error.BadRequest('no valid size value')
+                raise Error.BadRequest('no valid size value')
 
         if resolved:
             resolved = resolved == 'true'
@@ -176,17 +179,19 @@ class AssetAlertsAPI(Resource):
         alerts = [{
             'id': alert.id,
             'type': alert.alert_type.to_json(),
-            'created_at': "{}".format(alert.created_at) if alert.created_at else None,
+            'created_at': alert.created_at.strftime(DATE_FORMAT) if alert.created_at else None,
             'packet_id': alert.packet_id,
             'device_id': alert.device_id,
             'data_collector_id': alert.data_collector_id,
+            'data_collector_name': alert.data_collector.name,
             'device_session_id': alert.device_session_id,
             'gateway_id': alert.gateway_id,
             'device_auth_id': alert.device_auth_id,
             'parameters': json.loads(alert.parameters if alert.parameters is not None else '{}'),
-            'resolved_at': None if alert.resolved_at is None else "{}".format(alert.resolved_at),
+            'resolved_at': None if alert.resolved_at is None else alert.resolved_at.strftime(DATE_FORMAT),
             'resolved_by_id': alert.resolved_by_id,
-            'resolution_comment': alert.resolution_comment
+            'resolution_comment': alert.resolution_comment,
+            'asset_importance': alert.get_asset_importance()
         } for alert in results.items]
 
         response = {
@@ -296,11 +301,11 @@ class AssetIssuesAPI(Resource):
         issues = [{
             'id': issue.id,
             'organization_id': issue.organization_id,
-            'since': f'{issue.since}' if issue.since else None,
+            'since': issue.since.strftime(DATE_FORMAT) if issue.since else None,
             'alert': {
                 'id': issue.alert.id,
                 'type': issue.alert.alert_type.to_json(),
-                'created_at': "{}".format(issue.alert.created_at) if issue.alert.created_at else None,
+                'created_at': issue.alert.created_at.strftime(DATE_FORMAT) if issue.alert.created_at else None,
                 'packet_id': issue.alert.packet_id,
                 'device_id': issue.alert.device_id,
                 'data_collector_id': issue.alert.data_collector_id,
@@ -308,13 +313,13 @@ class AssetIssuesAPI(Resource):
                 'gateway_id': issue.alert.gateway_id,
                 'device_auth_id': issue.alert.device_auth_id,
                 'parameters': json.loads(issue.alert.parameters if issue.alert.parameters is not None else '{}'),
-                'resolved_at': None if issue.alert.resolved_at is None else "{}".format(issue.alert.resolved_at),
+                'resolved_at': None if issue.alert.resolved_at is None else issue.alert.resolved_at.strftime(DATE_FORMAT),
                 'resolved_by_id': issue.alert.resolved_by_id,
                 'resolution_comment': issue.alert.resolution_comment
             },
             'parameters': json.loads(issue.parameters if issue.parameters is not None else '{}'),
-            'last_checked': f'{issue.last_checked}' if issue.last_checked else None,
-            'resolved_at': f'{issue.resolved_at}' if issue.resolved_at else None,
+            'last_checked': issue.last_checked.strftime(DATE_FORMAT) if issue.last_checked else None,
+            'resolved_at': issue.resolved_at.strftime(DATE_FORMAT) if issue.resolved_at else None,
             'resolved_by_id': issue.resolved_by_id,
             'resolution_comment': issue.resolution_comment,
             'resolution_reason_id': issue.resolution_reason_id
@@ -359,6 +364,8 @@ class AssetsListAPI(Resource):
             importances = request.args.getlist('importances[]', type=AssetImportance)
         )
 
+        # Dev_addr is not returned here because is already in the used in the inventory section,
+        # but it is returned in the AssetInformation endpoint for the asset 360 view.
         devices = [{
             'id' : dev.id,
             'hex_id' : dev.hex_id,
@@ -370,7 +377,8 @@ class AssetsListAPI(Resource):
             'join_eui' : dev.join_eui,
             'importance' : dev.importance.value,
             'connected' : dev.connected,
-            'last_activity' : calendar.timegm(dev.last_activity.timetuple()),
+            'last_activity' : calendar.timegm(dev.last_activity.timetuple()) if dev.last_activity else None,
+            'first_activity' : calendar.timegm(dev.first_activity.timetuple()) if dev.first_activity else None,
             'location' : {'latitude' : dev.location_latitude,
                           'longitude': dev.location_longitude},
             'tags' : [{"id" : tag.id,

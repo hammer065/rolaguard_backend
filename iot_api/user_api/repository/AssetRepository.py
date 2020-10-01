@@ -6,7 +6,7 @@ from sqlalchemy.sql import select, expression, text
 
 from iot_api.user_api import db
 from iot_api.user_api.repository import DeviceRepository, GatewayRepository
-from iot_api.user_api.model import Device, Gateway, GatewayToDevice
+from iot_api.user_api.model import Device, Gateway, GatewayToDevice, DeviceSession
 from iot_api.user_api.models import DataCollector, DeviceToTag, GatewayToTag, Tag
 from iot_api.user_api import Error
 
@@ -24,19 +24,24 @@ def get_with(asset_id, asset_type, organization_id=None):
         - Model object of requested asset
     """
     if asset_type=="device":
-        asset = db.session.query(Device).\
-            filter(Device.id == asset_id).\
+        asset = Device.query.get(asset_id)
+        if not asset:
+            raise Error.NotFound(f"Asset with id {asset_id} and type {asset_type} not found")
+        device_session = db.session.query(DeviceSession).\
+            filter(DeviceSession.device_id==asset_id).\
+            order_by(DeviceSession.last_activity.desc()).\
             first()
+        asset.dev_addr = device_session.dev_addr if device_session else None
         asset.hex_id = asset.dev_eui
     elif asset_type=="gateway":
         asset = db.session.query(Gateway).\
             filter(Gateway.id == asset_id).\
             first()
+        if not asset:
+            raise Error.NotFound(f"Asset with id {asset_id} and type {asset_type} not found")
         asset.hex_id = asset.gw_hex_id
     else:
         raise Error.BadRequest(f"Invalid asset_type: {asset_type}. Valid values are \'device\' or \'gateway\'")
-    if not asset:
-        raise Error.NotFound(f"Asset with id {asset_id} and type {asset_type} not found")
     if organization_id and asset.organization_id != organization_id:
         raise Error.Forbidden("User's organization's different from asset organization")
     asset.type = asset_type
@@ -74,6 +79,7 @@ def list_all(organization_id, page=None, size=None,
         Device.vendor,
         Device.importance,
         Device.connected,
+        Device.first_activity,
         Device.last_activity
         ).select_from(Device).\
             join(DataCollector).\
@@ -93,6 +99,7 @@ def list_all(organization_id, page=None, size=None,
         Gateway.vendor,
         Gateway.importance,
         Gateway.connected,
+        Gateway.first_activity,
         Gateway.last_activity
         ).select_from(Gateway).\
             join(DataCollector).\

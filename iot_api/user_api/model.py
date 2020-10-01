@@ -722,6 +722,7 @@ class Gateway(db.Model):
     data_collector_id = Column(BigInteger, db.ForeignKey("data_collector.id"), nullable=False)
     organization_id = Column(BigInteger, db.ForeignKey("organization.id"), nullable=False)
     connected = Column(Boolean, nullable=False, default=True)
+    first_activity = Column(DateTime(timezone=True), nullable=True)
     last_activity = Column(DateTime(timezone=True), nullable=False)
     activity_freq = Column(Float, nullable=True)
     npackets_up = Column(BigInteger, nullable=False, default=0)
@@ -773,8 +774,10 @@ class Device(db.Model):
 
     pending_first_connection = Column(Boolean, nullable=False, default=True)
     connected = Column(Boolean, nullable=False, default=True)
+    first_activity = Column(DateTime(timezone=True), nullable=True)
     last_activity = Column(DateTime(timezone=True), nullable=True)
     activity_freq = Column(Float, nullable=True)
+    activity_freq_variance = Column(Float, nullable=False, default=0)
     npackets_up = Column(BigInteger, nullable=False, default=0)
     npackets_down = Column(BigInteger, nullable=False, default=0)
     npackets_lost = Column(Float, nullable=False, default=0)
@@ -807,6 +810,7 @@ class Device(db.Model):
             'connected': self.connected,
             'last_activity': "{}".format(self.last_activity),
             'activity_freq': self.activity_freq,
+            'activity_freq_variance': self.activity_freq_variance,
             'importance': self.importance.value,
             'npackets_up': self.npackets_up,
             'npackets_down': self.npackets_down,
@@ -879,6 +883,8 @@ class DeviceSession(db.Model):
     data_collector_id = Column(BigInteger, db.ForeignKey("data_collector.id"), nullable=False)
     device_auth_data_id = Column(BigInteger, ForeignKey("device_auth_data.id"), nullable=True)
     last_packet_id = Column(BigInteger, ForeignKey("packet.id"), nullable=True)
+    last_activity = Column(DateTime(timezone=True), nullable=False)
+    connected = Column(Boolean, nullable=False, default=True)
 
 
 class Packet(db.Model):
@@ -929,7 +935,7 @@ class Packet(db.Model):
     def to_json(self):
         return {
             'id': self.id,
-            'date': "{}".format(self.date),
+            'date': self.date.strftime(config.DATE_FORMAT),
             'topic': self.topic,
             'data_collector_id': self.data_collector_id,
             'organization_id': self.organization_id,
@@ -1029,18 +1035,7 @@ class DeviceAuthData(db.Model):
     device_session_id = Column(BigInteger, ForeignKey("device_session.id"), nullable=True)
 
 
-class Params(db.Model):
-    __tablename__ = 'params'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    url_base = Column(String(120), nullable=False)
-
-    @classmethod
-    def get_url_base(cls):
-        # print("db query")
-        return cls.query.one().url_base
-
-
-class QuarantineResolutionReasonType(Enum):
+    class QuarantineResolutionReasonType(Enum):
     MANUAL = 'MANUAL'
     AUTOMATIC = 'AUTOMATIC'
 

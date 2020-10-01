@@ -2,7 +2,7 @@ from flask import request
 from flask_restful import Resource
 from flask_jwt_extended import get_jwt_claims
 
-import iot_logging, calendar, json
+import iot_logging, calendar, json, math
 log = iot_logging.getLogger(__name__)
 
 from collections import namedtuple
@@ -58,6 +58,8 @@ class ResourceUsageInformationAPI(Resource):
             lsnr_values = [packet['lsnr'] for packet in packets if packet['lsnr'] is not None]
             rssi_values = [packet['rssi'] for packet in packets if packet['rssi'] is not None]
 
+        # Here the dev_addr is not returned to avoid a join between Device and DeviceSession,
+        # since it is already reported in the inventory endpoint.
         response = {
             'id': asset.id,
             'hex_id': asset.hex_id,
@@ -67,7 +69,8 @@ class ResourceUsageInformationAPI(Resource):
             'app_name': asset.app_name,
             'connected': asset.connected,
             'last_activity': calendar.timegm(asset.last_activity.timetuple()),
-            'activity_freq': asset.activity_freq,
+            'activity_freq': asset.activity_freq if asset_is_regular(asset) else None,
+            'activity_freq_variance': asset.activity_freq_variance,
             'packets_up': buildPacketsInfo(uptime, packet_counts.up, sum(list(packet_counts))),
             'packets_down': buildPacketsInfo(uptime, packet_counts.down, sum(list(packet_counts))),
             'packets_lost': buildPacketsInfo(uptime, packet_counts.lost, sum(list(packet_counts))) if asset.packet_loss is not None else None,
@@ -136,13 +139,15 @@ class ResourceUsageListAPI(Resource):
         assets = [{
             'id': dev.id,
             'hex_id': dev.hex_id,
+            'dev_addr': dev.dev_addr,
             'type': dev.type,
             'name': dev.name,
             'data_collector': dev.data_collector,
             'app_name': dev.app_name,
             'connected': dev.connected,
             'last_activity': calendar.timegm(dev.last_activity.timetuple()),
-            'activity_freq': dev.activity_freq,
+            'activity_freq': dev.activity_freq if asset_is_regular(dev) else None,
+            'activity_freq_variance': dev.activity_freq_variance,
             'packets_up': buildPacketsInfo(uptime, packets.up, sum(list(packets))),
             'packets_down': buildPacketsInfo(uptime, packets.down, sum(list(packets))),
             'packets_lost': buildPacketsInfo(uptime, packets.lost, sum(list(packets))) if dev.packet_loss is not None else None,
@@ -175,6 +180,15 @@ def buildPacketsInfo(uptime, count, total):
         'per_day': 24*60*60/secs_bw_packets if secs_bw_packets else 0,
         'percentage': 100*count/total if total else None
     }
+
+def asset_is_regular(asset):
+    params = json.loads(asset.policy_parameters or '{}')
+
+    #Consider the asset as regular if irregularity cannot be checked
+    if 'deviation_tolerance' not in params or asset.type == 'Gateway' or not asset.activity_freq:
+        return True
+
+    return math.sqrt(asset.activity_freq_variance)/asset.activity_freq <= params['deviation_tolerance']
 
 class ResourceUsagePerStatusCountAPI(Resource):
     """ Endpoint to count assets (devices+gateways) grouped by status (connected/disconnected).
