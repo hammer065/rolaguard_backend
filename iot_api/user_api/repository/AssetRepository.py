@@ -24,15 +24,11 @@ def get_with(asset_id, asset_type, organization_id=None):
         - Model object of requested asset
     """
     if asset_type=="device":
-        result = db.session.query(Device, DeviceSession.dev_addr).\
-            join(DeviceSession).\
-            filter(Device.id == asset_id).\
-            filter(DeviceSession.connected).\
-            first()
-        if not result:
+        asset = Device.query.get(asset_id)
+        if not asset:
             raise Error.NotFound(f"Asset with id {asset_id} and type {asset_type} not found")
-        asset = result[0]
-        asset.dev_addr = result[1]
+        asset.dev_addr = db.session.query(DeviceSession).\
+            filter(DeviceSession.device_id==asset_id).first().dev_addr
         asset.hex_id = asset.dev_eui
     elif asset_type=="gateway":
         asset = db.session.query(Gateway).\
