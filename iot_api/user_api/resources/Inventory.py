@@ -134,13 +134,13 @@ class AssetAlertsAPI(Resource):
             try:
                 page = int(page)
             except Exception:
-                return Error.BadRequest('no valid page value')
+                raise Error.BadRequest('no valid page value')
 
         if size:
             try:
                 size = int(size)
             except Exception:
-                return Error.BadRequest('no valid size value')
+                raise Error.BadRequest('no valid size value')
 
         if resolved:
             resolved = resolved == 'true'
@@ -183,13 +183,15 @@ class AssetAlertsAPI(Resource):
             'packet_id': alert.packet_id,
             'device_id': alert.device_id,
             'data_collector_id': alert.data_collector_id,
+            'data_collector_name': alert.data_collector.name,
             'device_session_id': alert.device_session_id,
             'gateway_id': alert.gateway_id,
             'device_auth_id': alert.device_auth_id,
             'parameters': json.loads(alert.parameters if alert.parameters is not None else '{}'),
             'resolved_at': None if alert.resolved_at is None else alert.resolved_at.strftime(DATE_FORMAT),
             'resolved_by_id': alert.resolved_by_id,
-            'resolution_comment': alert.resolution_comment
+            'resolution_comment': alert.resolution_comment,
+            'asset_importance': alert.get_asset_importance()
         } for alert in results.items]
 
         response = {
