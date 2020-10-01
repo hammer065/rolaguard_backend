@@ -130,7 +130,7 @@ def list_all(organization_id, page=None, size=None,
             join(GatewayToDevice, Device.id == GatewayToDevice.device_id).\
             join(Policy, Policy.id == DataCollector.policy_id).\
             join(PolicyItem, and_(Policy.id == PolicyItem.policy_id, PolicyItem.alert_type_code == 'LAF-401')).\
-            order_by(Device.id, DeviceSession.last_activity).\
+            order_by(Device.id, DeviceSession.last_activity.desc()).\
             distinct(Device.id)
 
     gtw_query = db.session.query(

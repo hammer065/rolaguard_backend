@@ -28,7 +28,9 @@ def get_with(asset_id, asset_type, organization_id=None):
         if not asset:
             raise Error.NotFound(f"Asset with id {asset_id} and type {asset_type} not found")
         asset.dev_addr = db.session.query(DeviceSession).\
-            filter(DeviceSession.device_id==asset_id).first().dev_addr
+            filter(DeviceSession.device_id==asset_id).\
+            order_by(DeviceSession.last_activity.desc()).\
+            first().dev_addr
         asset.hex_id = asset.dev_eui
     elif asset_type=="gateway":
         asset = db.session.query(Gateway).\
