@@ -1035,7 +1035,7 @@ class DeviceAuthData(db.Model):
     device_session_id = Column(BigInteger, ForeignKey("device_session.id"), nullable=True)
 
 
-    class QuarantineResolutionReasonType(Enum):
+class QuarantineResolutionReasonType(Enum):
     MANUAL = 'MANUAL'
     AUTOMATIC = 'AUTOMATIC'
 
