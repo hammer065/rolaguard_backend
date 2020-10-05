@@ -1078,9 +1078,11 @@ class Register(Resource):
 
         # If it's an internal request, check it's coming from an admin. Otherwise, validate recaptcha
         if admin_user_identity is not None:
+            LOG.info("Admin user identity was not None")
             if not is_admin_user(User.find_by_username(get_jwt_identity()).id):
                 raise Error.Forbidden()
         elif USE_RECAPTCHA:
+            LOG.info("Admin user identity was None, validating recaptcha")
             recaptcha_valid= validate_recaptcha_token(data['recaptcha_token'])
             if not recaptcha_valid:
                 raise Error.BadRequest('Bad recaptcha token')
