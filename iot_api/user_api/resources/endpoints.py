@@ -24,6 +24,7 @@ import iot_logging
 
 from iot_api import cipher_suite
 from iot_api import config
+from iot_api.user_api import Error
 from iot_api.user_api.enums import RoleTypes
 from iot_api.user_api.events.data_collector_events import emit_data_collector_event
 from iot_api.user_api.events.policy_events import emit_policy_event
@@ -1072,192 +1073,188 @@ class Register(Resource):
     @jwt_optional
     def post(self):
         """Registers the user."""
-        try:
-            admin_user_identity = get_jwt_identity()
-            data = register_parser.parse_args()
+        admin_user_identity = get_jwt_identity()
+        data = register_parser.parse_args()
 
-            # If it's an internal request, check it's coming from an admin. Otherwise, validate recaptcha
-            if admin_user_identity is not None:
-                if not is_admin_user(User.find_by_username(get_jwt_identity()).id):
-                    return forbidden()
-            elif USE_RECAPTCHA:
-                recaptcha_valid= validate_recaptcha_token(data['recaptcha_token'])
-                if not recaptcha_valid:
-                    return bad_request('Bad recaptcha token')
-            else:
-                LOG.warning("Recaptcha was not validated because the credentials were not defined.")
+        # If it's an internal request, check it's coming from an admin. Otherwise, validate recaptcha
+        if admin_user_identity is not None:
+            if not is_admin_user(User.find_by_username(get_jwt_identity()).id):
+                raise Error.Forbidden()
+        elif USE_RECAPTCHA:
+            recaptcha_valid= validate_recaptcha_token(data['recaptcha_token'])
+            if not recaptcha_valid:
+                raise Error.BadRequest('Bad recaptcha token')
+        else:
+            LOG.warning("Recaptcha was not validated because the credentials were not defined.")
 
-            user_roles = []
-            organization_id = None
+        user_roles = []
+        organization_id = None
 
-            if admin_user_identity is None: # Creating new user from land page
-                user_roles = [2]
-            else: # Creating new user into an existing organization
-                if not "user_roles" in data or data["user_roles"] is None or len(data["user_roles"]) == 0:
-                    return bad_request("Missing user_roles attribute.")
-                if len(data["user_roles"]) > 1:
-                    return bad_request("Cannot assign more than one role")
-                if int(data["user_roles"][0]) not in [1, 2]:
-                    return bad_request("Cannot assign this user role")
+        if admin_user_identity is None: # Creating new user from land page
+            user_roles = [2]
+        else: # Creating new user into an existing organization
+            if not "user_roles" in data or data["user_roles"] is None or len(data["user_roles"]) == 0:
+                raise Error.BadRequest("Missing user_roles attribute.")
+            if len(data["user_roles"]) > 1:
+                raise Error.BadRequest("Cannot assign more than one role")
+            if int(data["user_roles"][0]) not in [1, 2]:
+                raise Error.BadRequest("Cannot assign this user role")
 
 
-                admin_user = User.find_by_username(admin_user_identity)
-                user_roles = data["user_roles"]
-                organization_id = admin_user.organization_id
+            admin_user = User.find_by_username(admin_user_identity)
+            user_roles = data["user_roles"]
+            organization_id = admin_user.organization_id
 
-            email_without_space = data["email"].strip().lower()
-            email_spaces = email_without_space.split(" ")
+        email_without_space = data["email"].strip().lower()
+        email_spaces = email_without_space.split(" ")
 
-            if len(email_spaces) > 1:
-                return internal("Email {0} is not valid".format(email_without_space))
+        if len(email_spaces) > 1:
+            raise Error.Internal("Email {0} is not valid".format(email_without_space))
 
-            is_valid = validate_email(email_without_space, verify=True)
-            if not is_valid:
-                return internal("Email {0} is not valid".format(email_without_space))
+        is_valid = validate_email(email_without_space, verify=True)
+        if not is_valid:
+            raise Error.Internal("Email {0} is not valid".format(email_without_space))
 
-            username_without_space = data["username"].strip()
-            username_spaces = username_without_space.split(" ")
+        username_without_space = data["username"].strip()
+        username_spaces = username_without_space.split(" ")
 
-            if len(username_spaces) > 1:
-                return internal("User {0} is not valid".format(username_without_space))
+        if len(username_spaces) > 1:
+            raise Error.Internal("User {0} is not valid".format(username_without_space))
 
-            if User.find_by_username(username_without_space):
-                return internal("User {0} already exists".format(username_without_space))
+        if User.find_by_username(username_without_space):
+            raise Error.Internal("User {0} already exists".format(username_without_space))
 
-            phone_without_space = None
-            if data["phone"]:
-                phone_without_space = data["phone"].strip()  # delete whitespaces in phone (leading and trailing)
+        phone_without_space = None
+        if data["phone"]:
+            phone_without_space = data["phone"].strip()  # delete whitespaces in phone (leading and trailing)
 
-                phone_spaces = phone_without_space.split(" ")
+            phone_spaces = phone_without_space.split(" ")
 
-                if len(phone_spaces) > 1:
-                    return internal("Phone {0} is not valid".format(phone_without_space))
+            if len(phone_spaces) > 1:
+                raise Error.Internal("Phone {0} is not valid".format(phone_without_space))
 
-                phone_without_prefix = ""
-                phone_prefix = ""
-                if len(phone_without_space.split("-"))>1:
-                    phone_without_prefix = phone_without_space.split("-")[1]
-                    phone_prefix = phone_without_space.split("-")[0]
-                # if len(phone_without_space) > 0 and not phone_without_space.isdigit():
-                phone_without_space_and_signs = phone_without_space.replace('+', '', 1)
-                phone_without_space_and_signs = phone_without_space_and_signs.replace('-', '', 1)
+            phone_without_prefix = ""
+            phone_prefix = ""
+            if len(phone_without_space.split("-"))>1:
+                phone_without_prefix = phone_without_space.split("-")[1]
+                phone_prefix = phone_without_space.split("-")[0]
+            # if len(phone_without_space) > 0 and not phone_without_space.isdigit():
+            phone_without_space_and_signs = phone_without_space.replace('+', '', 1)
+            phone_without_space_and_signs = phone_without_space_and_signs.replace('-', '', 1)
 
-                if len(phone_without_space) > 0 and (
-                        not phone_without_space.count("+") == 1 or
-                        not phone_without_space.count("-") == 1 or
-                        not phone_without_space_and_signs.isdigit() or
-                        len(phone_without_prefix) < 6 or
-                        len(phone_prefix) < 2 or
-                        phone_without_space.find("+") != 0 or
-                        len(phone_without_space) > 30):
-                    return internal("Phone {0} is not valid".format(phone_without_space))
+            if len(phone_without_space) > 0 and (
+                    not phone_without_space.count("+") == 1 or
+                    not phone_without_space.count("-") == 1 or
+                    not phone_without_space_and_signs.isdigit() or
+                    len(phone_without_prefix) < 6 or
+                    len(phone_prefix) < 2 or
+                    phone_without_space.find("+") != 0 or
+                    len(phone_without_space) > 30):
+                raise Error.Internal("Phone {0} is not valid".format(phone_without_space))
+        
+        list_user = User.find_by_email(email_without_space)
+        if len(list_user) == 0:
             
-            list_user = User.find_by_email(email_without_space)
-            if len(list_user) == 0:
-                
-                collector_ids = []
-                if "data_collectors" in data and data["data_collectors"] is not None and len(data["data_collectors"]) > 0:
-                    collector_id_strings = data["data_collectors"]
-                    collector_ids = list(map(lambda x: int(x), collector_id_strings))
-                collectors = DataCollector.find_by_ids(collector_ids)
+            collector_ids = []
+            if "data_collectors" in data and data["data_collectors"] is not None and len(data["data_collectors"]) > 0:
+                collector_id_strings = data["data_collectors"]
+                collector_ids = list(map(lambda x: int(x), collector_id_strings))
+            collectors = DataCollector.find_by_ids(collector_ids)
 
-                user = User(
-                    username=username_without_space.lower(),
-                    full_name=data["full_name"],
-                    password="passwordArgeniss",
-                    email=email_without_space,
-                    phone=phone_without_space,
-                    organization_id=organization_id,
-                    deleted=False,
-                    collectors=collectors
-                )
-                user.save_to_db()
-
-            elif len(list_user) > 0:
-                
-                user= list_user[0]
-                # If user exists and is active, then send a recovery mail
-                if user.active:
-                    if config.SMTP_HOST and config.SEND_EMAILS:
-                        
-                        full_url = config.BRAND_URL + "recovery/"
-
-                        LOG.debug('init email sending')
-                        msg = MIMEMultipart('alternative')
-                        msg['Subject'] = f"{config.BRAND_NAME} Existing Account"
-                        msg['From'] = email.utils.formataddr((config.SMTP_SENDER_NAME, config.SMTP_SENDER))
-                        msg['To'] = email_without_space
-                        part = MIMEText(render_template(
-                            'existing_account.html',
-                            brand_name=config.BRAND_NAME,
-                            full_url=full_url
-                            ), 'html')
-                        msg.attach(part)
-                        server = smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT)
-                        # server.set_debuglevel(1)
-                        server.ehlo()
-                        server.starttls()
-                        # stmplib docs recommend calling ehlo() before & after starttls()
-                        server.ehlo()
-                        server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
-                        server.sendmail(config.SMTP_SENDER, email_without_space, msg.as_string())
-                        server.close()
-                        LOG.debug("finished email sending")
-
-                        return {
-                            "message": "An email was sent to the account provided"
-                        }
-                    elif config.SEND_EMAILS:
-                        LOG.error("Existing account mail not sent because there is not SMTP server configured.")
-                        return internal("Something went wrong trying to send mail")
-                
-            # If user didn't exist or existed but wasn't activated, then send  an activation mail 
-            token = hashlib.sha256((user.email + str(datetime.datetime.now())).encode())
-            encoded_token = token.hexdigest()
-
-            new_account_activation = AccountActivation(
-                user_id=user.id,
-                token=encoded_token,
-                creation_date=datetime.datetime.now().isoformat(),
-                active=True,
-                user_roles_id=",".join([str(x) for x in user_roles])
+            user = User(
+                username=username_without_space.lower(),
+                full_name=data["full_name"],
+                password="passwordArgeniss",
+                email=email_without_space,
+                phone=phone_without_space,
+                organization_id=organization_id,
+                deleted=False,
+                collectors=collectors
             )
+            user.save_to_db()
 
-            full_url = config.BRAND_URL + "activation/" + str(encoded_token)
+        elif len(list_user) > 0:
+            
+            user= list_user[0]
+            # If user exists and is active, then send a recovery mail
+            if user.active:
+                if config.SMTP_HOST and config.SEND_EMAILS:
+                    
+                    full_url = config.BRAND_URL + "recovery/"
 
-            if config.SMTP_HOST and config.SEND_EMAILS:
-                LOG.debug('init email sending')
-                msg = MIMEMultipart('alternative')
-                msg['Subject'] = f"{config.BRAND_NAME} Account Confirmation"
-                msg['From'] = email.utils.formataddr((config.SMTP_SENDER_NAME, config.SMTP_SENDER))
-                msg['To'] = user.email
-                part = MIMEText(render_template(
-                    'activation.html',
-                    brand_name=config.BRAND_NAME,
-                    full_url=full_url
-                    ), 'html')
-                msg.attach(part)
-                server = smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT)
-                server.ehlo()
-                server.starttls()
-                # stmplib docs recommend calling ehlo() before & after starttls()
-                server.ehlo()
-                server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
-                server.sendmail(config.SMTP_SENDER, user.email, msg.as_string())
-                server.close()
-                LOG.debug("finished email sending")
-                new_account_activation.save_to_db()
+                    LOG.debug('init email sending')
+                    msg = MIMEMultipart('alternative')
+                    msg['Subject'] = f"{config.BRAND_NAME} Existing Account"
+                    msg['From'] = email.utils.formataddr((config.SMTP_SENDER_NAME, config.SMTP_SENDER))
+                    msg['To'] = email_without_space
+                    part = MIMEText(render_template(
+                        'existing_account.html',
+                        brand_name=config.BRAND_NAME,
+                        full_url=full_url
+                        ), 'html')
+                    msg.attach(part)
+                    server = smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT)
+                    # server.set_debuglevel(1)
+                    server.ehlo()
+                    server.starttls()
+                    # stmplib docs recommend calling ehlo() before & after starttls()
+                    server.ehlo()
+                    server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
+                    server.sendmail(config.SMTP_SENDER, email_without_space, msg.as_string())
+                    server.close()
+                    LOG.debug("finished email sending")
 
-                return {
-                    "message": "An email was sent to the account provided"
-                }
-            elif config.SEND_EMAILS:
-                LOG.error("Activation mail not sent because there is not SMTP server configured.")
-                return internal("Something went wrong trying to send activation")
+                    return {
+                        "message": "An email was sent to the account provided"
+                    }
+                elif config.SEND_EMAILS:
+                    raise Error.Internal("Something went wrong trying to send mail: " + \
+                        "Existing account mail not sent because there is no SMTP server configured.")
+            
+        # If user didn't exist or existed but wasn't activated, then send  an activation mail 
+        token = hashlib.sha256((user.email + str(datetime.datetime.now())).encode())
+        encoded_token = token.hexdigest()
 
-        except Exception as exc:
-            LOG.error("Cannot process Registration. Something went wrong: {0}".format(exc))
-            return internal("Cannot process Registration. Something went wrong")
+        new_account_activation = AccountActivation(
+            user_id=user.id,
+            token=encoded_token,
+            creation_date=datetime.datetime.now().isoformat(),
+            active=True,
+            user_roles_id=",".join([str(x) for x in user_roles])
+        )
+
+        full_url = config.BRAND_URL + "activation/" + str(encoded_token)
+
+        if config.SMTP_HOST and config.SEND_EMAILS:
+            LOG.debug('init email sending')
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = f"{config.BRAND_NAME} Account Confirmation"
+            msg['From'] = email.utils.formataddr((config.SMTP_SENDER_NAME, config.SMTP_SENDER))
+            msg['To'] = user.email
+            part = MIMEText(render_template(
+                'activation.html',
+                brand_name=config.BRAND_NAME,
+                full_url=full_url
+                ), 'html')
+            msg.attach(part)
+            server = smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT)
+            server.ehlo()
+            server.starttls()
+            # stmplib docs recommend calling ehlo() before & after starttls()
+            server.ehlo()
+            server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
+            server.sendmail(config.SMTP_SENDER, user.email, msg.as_string())
+            server.close()
+            LOG.debug("finished email sending")
+            new_account_activation.save_to_db()
+
+            return {
+                "message": "An email was sent to the account provided"
+            }
+        elif config.SEND_EMAILS:
+            raise Error.Internal("Something went wrong trying to send activation: " + \
+                "Activation mail not sent because there is no SMTP server configured.")
+
     
 
 class TokenRefresh(Resource):

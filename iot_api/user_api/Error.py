@@ -28,6 +28,10 @@ class UnprocessableEntity(Exception):
     html_code = 422
     error_msg = "Unprocessable entity"
 
+class Internal(Exception):
+    html_code = 500
+    error_msg = "Internal Server Error"
+
 # Error handlers: these functions are called when an exception is raised.
 # In most cases they respond with a short message and the corresponding
 # HTML error code.
@@ -55,6 +59,12 @@ def handle_404(error):
 def handle_422(error):
     log.error(str(error))
     return {"message" : error.error_msg}, error.html_code
+
+@app.errorhandler(Internal)
+def handle_500(error):
+    log.error(str(error))
+    return {"message" : error.error_msg}, error.html_code
+
 
 # In this handler we catch all the exceptions that not were handled by the other
 # handler, i.e the exceptions raised by Flask and the internal errors.
