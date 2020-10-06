@@ -75,7 +75,7 @@ register_parser.add_argument("phone", help="Missing phone attribute.", required=
 register_parser.add_argument("user_roles", help="Missing user_roles attribute.", required=False)
 register_parser.add_argument("data_collectors", help="Missing data_collectors attribute.", required=False,
                              action="append")
-register_parser.add_argument("recaptcha_token", help="Missing recaptcha_token attribute.", required=USE_RECAPTCHA)
+register_parser.add_argument("recaptcha_token", help="Missing recaptcha_token attribute.", required=False)
 
 login_parser = reqparse.RequestParser()
 login_parser.add_argument("username", dest="username_or_email", help="You have to enter username or email",
@@ -1078,14 +1078,15 @@ class Register(Resource):
 
         # If it's an internal request, check it's coming from an admin. Otherwise, validate recaptcha
         if admin_user_identity is not None:
-            LOG.info("Admin user identity was not None")
             if not is_admin_user(User.find_by_username(get_jwt_identity()).id):
                 raise Error.Forbidden()
         elif USE_RECAPTCHA:
-            LOG.info("Admin user identity was None, validating recaptcha")
-            recaptcha_valid= validate_recaptcha_token(data['recaptcha_token'])
+            recaptcha_token = data['recaptcha_token']
+            if not recaptcha_token:
+                raise Error.BadRequest('Missing recaptcha token in request')
+            recaptcha_valid = validate_recaptcha_token(recaptcha_token)
             if not recaptcha_valid:
-                raise Error.BadRequest('Bad recaptcha token')
+                raise Error.BadRequest('Invalid recaptcha token')
         else:
             LOG.warning("Recaptcha was not validated because the credentials were not defined.")
 
