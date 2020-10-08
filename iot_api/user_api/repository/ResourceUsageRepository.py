@@ -1,16 +1,20 @@
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
-from sqlalchemy import distinct, cast, Float, func, null
+from sqlalchemy import distinct, cast, Float, func, null, case, BigInteger
 from sqlalchemy.sql import select, expression, text, not_, and_
 
 from iot_api.user_api import db
 from iot_api.user_api.repository import DeviceRepository, GatewayRepository
-from iot_api.user_api.model import Device, Gateway, GatewayToDevice, DeviceSession
-from iot_api.user_api.models import DataCollector, Policy, PolicyItem
+from iot_api.user_api.model import Device, Gateway, GatewayToDevice, DeviceSession, Packet
+from iot_api.user_api.models import DataCollector, Policy, PolicyItem, CounterType, DeviceCounters, GatewayCounters, RowProcessed
 from iot_api.user_api import Error
 
 from collections import defaultdict
+
+dev_wanted_counters = [CounterType.PACKETS_UP, CounterType.PACKETS_DOWN, CounterType.PACKETS_LOST, 
+        CounterType.RETRANSMISSIONS, CounterType.JOIN_REQUESTS, CounterType.FAILED_JOIN_REQUESTS]
+gtw_wanted_counters = [CounterType.PACKETS_UP, CounterType.PACKETS_DOWN]
 
 def get_with(asset_id, asset_type, organization_id=None):
     """ Gets an asset from database
@@ -23,7 +27,7 @@ def get_with(asset_id, asset_type, organization_id=None):
         - Model object of requested asset
     """
     if asset_type=="device":
-        asset = db.session.query(
+        asset_query = db.session.query(
             Device.id,
             Device.organization_id,
             Device.dev_eui.label('hex_id'),
@@ -44,14 +48,24 @@ def get_with(asset_id, asset_type, organization_id=None):
             Device.ngateways_connected_to,
             Device.payload_size,
             Device.last_packets_list
-            ).join(DataCollector).\
-                join(GatewayToDevice).\
-                filter(Device.id == asset_id).\
+            ).filter(Device.id == asset_id).\
+                join(DataCollector, Device.data_collector_id == DataCollector.id).\
                 join(Policy, Policy.id == DataCollector.policy_id).\
                 join(PolicyItem, and_(Policy.id == PolicyItem.policy_id, PolicyItem.alert_type_code == 'LAF-401')).\
-                first()
+                join(RowProcessed, RowProcessed.analyzer == 'packet_analyzer').\
+                join(Packet, Packet.id == RowProcessed.last_row).\
+                join(DeviceCounters, and_(
+                    DeviceCounters.device_id == Device.id, 
+                    DeviceCounters.counter_type.in_(dev_wanted_counters),
+                    DeviceCounters.last_update + func.make_interval(0,0,0,1) > Packet.date
+                    ), isouter=True).\
+                group_by(Device.id, DataCollector.name, PolicyItem.parameters)
+
+        asset_query = add_counters_columns(asset_query, dev_wanted_counters, DeviceCounters)
+        asset = asset_query.first()
+
     elif asset_type=="gateway":
-        asset = db.session.query(
+        asset_query = db.session.query(
             Gateway.id,
             Gateway.organization_id,
             Gateway.gw_hex_id.label('hex_id'),
@@ -72,9 +86,19 @@ def get_with(asset_id, asset_type, organization_id=None):
             cast(expression.null(), Float).label('ngateways_connected_to'),
             cast(expression.null(), Float).label('payload_size'),
             expression.null().label('last_packets_list')
-            ).join(DataCollector).\
-                filter(Gateway.id == asset_id).\
-                first()
+            ).filter(Gateway.id == asset_id).\
+                join(DataCollector, Gateway.data_collector_id == DataCollector.id).\
+                join(RowProcessed, RowProcessed.analyzer == 'packet_analyzer').\
+                join(Packet, Packet.id == RowProcessed.last_row).\
+                join(GatewayCounters, and_(
+                    GatewayCounters.gateway_id == Gateway.id, 
+                    GatewayCounters.counter_type.in_(gtw_wanted_counters),
+                    GatewayCounters.last_update + func.make_interval(0,0,0,1) > Packet.date
+                    ), isouter=True).\
+                group_by(Gateway.id, DataCollector.name)
+
+        asset_query = add_counters_columns(asset_query, gtw_wanted_counters, GatewayCounters)
+        asset = asset_query.first()
     else:
         raise Error.BadRequest(f"Invalid asset_type: {asset_type}. Valid values are \'device\' or \'gateway\'")
     if not asset:
@@ -101,6 +125,11 @@ def list_all(organization_id, page=None, size=None,
     Returns:
         - Dict with the list of assets.
     """
+    last_dev_addrs = db.session.\
+        query(DeviceSession.device_id, func.max(DeviceSession.last_activity).label('last_activity')).\
+        group_by(DeviceSession.device_id).\
+        subquery()
+
     # Build two queries, one for devices and one for gateways
     dev_query = db.session.query(
         Device.id.label('id'),
@@ -125,13 +154,19 @@ def list_all(organization_id, page=None, size=None,
         ).select_from(Device).\
             filter(Device.organization_id==organization_id).\
             filter(Device.pending_first_connection==False).\
-            join(DeviceSession, Device.id == DeviceSession.device_id).\
             join(DataCollector, Device.data_collector_id == DataCollector.id).\
-            join(GatewayToDevice, Device.id == GatewayToDevice.device_id).\
             join(Policy, Policy.id == DataCollector.policy_id).\
             join(PolicyItem, and_(Policy.id == PolicyItem.policy_id, PolicyItem.alert_type_code == 'LAF-401')).\
-            order_by(Device.id, DeviceSession.last_activity.desc()).\
-            distinct(Device.id)
+            join(last_dev_addrs, Device.id == last_dev_addrs.c.device_id).\
+            join(DeviceSession, and_(DeviceSession.device_id == Device.id, DeviceSession.last_activity == last_dev_addrs.c.last_activity)).\
+            join(RowProcessed, RowProcessed.analyzer == 'packet_analyzer').\
+            join(Packet, Packet.id == RowProcessed.last_row).\
+            join(DeviceCounters, and_(
+                DeviceCounters.device_id == Device.id, 
+                DeviceCounters.counter_type.in_(dev_wanted_counters),
+                DeviceCounters.last_update + func.make_interval(0,0,0,1) > Packet.date
+                ), isouter=True).\
+            group_by(Device.id, DeviceSession.dev_addr, DataCollector.name, PolicyItem.parameters)
 
     gtw_query = db.session.query(
         distinct(Gateway.id).label('id'),
@@ -154,9 +189,20 @@ def list_all(organization_id, page=None, size=None,
         cast(expression.null(), Float).label('payload_size'),
         cast(expression.null(), Float).label('ngateways_connected_to')
         ).select_from(Gateway).\
-            join(DataCollector).\
-            join(GatewayToDevice).\
-            filter(Gateway.organization_id == organization_id)
+            filter(Gateway.organization_id == organization_id).\
+            join(DataCollector, Gateway.data_collector_id == DataCollector.id).\
+            join(RowProcessed, RowProcessed.analyzer == 'packet_analyzer').\
+            join(Packet, Packet.id == RowProcessed.last_row).\
+            join(GatewayCounters, and_(
+                GatewayCounters.gateway_id == Gateway.id, 
+                GatewayCounters.counter_type.in_(gtw_wanted_counters),
+                GatewayCounters.last_update + func.make_interval(0,0,0,1) > Packet.date
+                ), isouter=True).\
+            group_by(Gateway.id, DataCollector.name)
+
+    # Add a column for every counter type to each query, using the wanted_counters lists
+    dev_query = add_counters_columns(dev_query, dev_wanted_counters, DeviceCounters)
+    gtw_query = add_counters_columns(gtw_query, gtw_wanted_counters, GatewayCounters)
 
     queries = add_filters(
         dev_query = dev_query,
@@ -207,14 +253,12 @@ def count_per_status(organization_id, asset_type=None, asset_status=None,
     """
     dev_query = db.session.query(Device.connected, func.count(distinct(Device.id)).label("count_result")).\
         select_from(Device).\
-        join(GatewayToDevice).\
         group_by(Device.connected).\
         filter(Device.organization_id==organization_id).\
         filter(Device.pending_first_connection==False)
 
     gtw_query = db.session.query(Gateway.connected, func.count(distinct(Gateway.id)).label("count_result")).\
         select_from(Gateway).\
-        join(GatewayToDevice).\
         group_by(Gateway.connected).\
         filter(Gateway.organization_id==organization_id)
 
@@ -274,15 +318,14 @@ def count_per_gateway(organization_id, asset_type=None, asset_status=None,
     # Query to count the number of devices per gateway
     dev_query = db.session.query(Gateway.id, Gateway.gw_hex_id, func.count(distinct(Device.id)).label("count_result")).\
         select_from(Gateway).\
-        join(GatewayToDevice).\
-        join(Device).\
+        join(GatewayToDevice, GatewayToDevice.gateway_id == Gateway.id).\
+        join(Device, Device.id == GatewayToDevice.device_id).\
         group_by(Gateway.id, Gateway.gw_hex_id).\
         filter(Gateway.organization_id==organization_id).\
         filter(Device.pending_first_connection==False)
 
     # The number of gateway grouped by gateway is simply 1
     gtw_query = db.session.query(Gateway.id, Gateway.gw_hex_id, expression.literal_column("1").label("count_result")).\
-        join(GatewayToDevice).\
         filter(Gateway.organization_id==organization_id)
 
     queries = add_filters(
@@ -346,7 +389,6 @@ def count_per_signal_strength(organization_id, asset_type=None, asset_status=Non
 
     dev_query = dev_query.\
         select_from(Device).\
-        join(GatewayToDevice).\
         filter(Device.organization_id==organization_id).\
         filter(Device.pending_first_connection==False)
 
@@ -401,6 +443,11 @@ def count_per_packet_loss(organization_id, asset_type=None, asset_status=None,
     # The packet loss ranges are defined as [L,R) = [range_limits[i], range_limits[i+1]) for every 0 <= i <= 9
     range_limits = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 101]
     range_names = ['[0,10)', '[10,20)', '[20,30)', '[30,40)', '[40,50)', '[50,60)', '[60,70)', '[70,80)', '[80,90)', '[90,100]']
+
+    packets_up = build_count_subquery(CounterType.PACKETS_UP)
+    packets_down = build_count_subquery(CounterType.PACKETS_DOWN)
+    packets_lost = build_count_subquery(CounterType.PACKETS_LOST)
+
     dev_query = db.session.query()
     gtw_query = db.session.query()
     for i in range(0, len(range_names)):
@@ -408,12 +455,9 @@ def count_per_packet_loss(organization_id, asset_type=None, asset_status=None,
         L = range_limits[i]
         R = range_limits[i+1]
         dev_query = dev_query.add_column(func.count(distinct(Device.id)).filter(and_(
-            Device.npackets_lost != null(),
-            Device.npackets_up + Device.npackets_down > 0,
-            L <= 100*Device.npackets_up*Device.npackets_lost \
-                /(Device.npackets_up*(1+Device.npackets_lost) + Device.npackets_down),
-            R > 100*Device.npackets_up*Device.npackets_lost \
-                /(Device.npackets_up*(1+Device.npackets_lost) + Device.npackets_down)
+            packets_up.c.count + packets_down.c.count + packets_lost.c.count > 0,
+            L <= 100*packets_lost.c.count/(packets_up.c.count + packets_down.c.count + packets_lost.c.count),
+            R > 100*packets_lost.c.count/(packets_up.c.count + packets_down.c.count + packets_lost.c.count),
             )).label(name))
         
         # Gateways are not considered because they don't have the loss value
@@ -421,9 +465,11 @@ def count_per_packet_loss(organization_id, asset_type=None, asset_status=None,
 
     dev_query = dev_query.\
         select_from(Device).\
-        join(GatewayToDevice).\
         filter(Device.organization_id==organization_id).\
-        filter(Device.pending_first_connection==False)
+        filter(Device.pending_first_connection==False).\
+        join(packets_up, Device.id == packets_up.c.device_id).\
+        join(packets_down, Device.id == packets_down.c.device_id).\
+        join(packets_lost, Device.id == packets_lost.c.device_id)
 
     queries = add_filters(
         dev_query = dev_query,
@@ -471,34 +517,73 @@ def add_filters(dev_query, gtw_query, asset_type=None, asset_status=None,
         gtw_query = gtw_query.filter(not_(Gateway.connected))
     elif asset_status is not None:
         raise Error.BadRequest("Invalid asset status parameter")
+
     if gateway_ids:
-        dev_query = dev_query.filter(GatewayToDevice.gateway_id.in_(gateway_ids))
+        wanted_devs = db.session.\
+            query(distinct(GatewayToDevice.device_id).label('device_id')).\
+            filter(GatewayToDevice.gateway_id.in_(gateway_ids)).\
+            subquery()
+
+        dev_query = dev_query.join(wanted_devs, Device.id == wanted_devs.c.device_id)
         gtw_query = gtw_query.filter(Gateway.id.in_(gateway_ids))
+
     if device_ids:
+        wanted_gtws = db.session.\
+            query(distinct(GatewayToDevice.gateway_id).label('gateway_id')).\
+            filter(GatewayToDevice.device_id.in_(device_ids)).\
+            subquery()
+
         dev_query = dev_query.filter(Device.id.in_(device_ids))
-        gtw_query = gtw_query.filter(GatewayToDevice.device_id.in_(device_ids))
+        gtw_query = gtw_query.join(wanted_gtws, Gateway.id == wanted_gtws.c.gateway_id)
+
     if min_signal_strength is not None:
         dev_query = dev_query.filter(and_(Device.max_rssi != null(), Device.max_rssi >= min_signal_strength))
     if max_signal_strength is not None:
         dev_query = dev_query.filter(and_(Device.max_rssi != null(), Device.max_rssi < max_signal_strength))
+
+    packets_up = build_count_subquery(CounterType.PACKETS_UP)
+    packets_down = build_count_subquery(CounterType.PACKETS_DOWN)
+    packets_lost = build_count_subquery(CounterType.PACKETS_LOST)
+
+    if min_packet_loss is not None or max_packet_loss is not None:
+        dev_query = dev_query.\
+            join(packets_up, Device.id == packets_up.c.device_id).\
+            join(packets_down, Device.id == packets_down.c.device_id).\
+            join(packets_lost, Device.id == packets_lost.c.device_id)
     if min_packet_loss is not None:
         dev_query = dev_query.filter(and_(
-            Device.npackets_up + Device.npackets_down > 0,
-            Device.npackets_lost != null(),
-            100*Device.npackets_up*Device.npackets_lost \
-                /(Device.npackets_up*(1+Device.npackets_lost) + Device.npackets_down) \
-                    >= min_packet_loss
+            packets_up.c.count + packets_down.c.count + packets_lost.c.count > 0,
+            100*packets_lost.c.count/(packets_up.c.count + packets_down.c.count + packets_lost.c.count) >= min_packet_loss
         ))
     if max_packet_loss is not None:
         dev_query = dev_query.filter(and_(
-            Device.npackets_up + Device.npackets_down > 0,
-            Device.npackets_lost != null(),
-            100*Device.npackets_up*Device.npackets_lost \
-                /(Device.npackets_up*(1+Device.npackets_lost) + Device.npackets_down) \
-                    < max_packet_loss
+            packets_up.c.count + packets_down.c.count + packets_lost.c.count > 0,
+            100*packets_lost.c.count/(packets_up.c.count + packets_down.c.count + packets_lost.c.count) < max_packet_loss
         ))
 
     return (dev_query, gtw_query)
+
+def add_counters_columns(query, wanted_counters, asset_counters_cls):
+    for counter_type in CounterType:
+        if counter_type in wanted_counters:
+            query = query.add_column(
+                cast(
+                    func.coalesce(func.sum(case([(asset_counters_cls.counter_type == counter_type, asset_counters_cls.value)], else_=0)), 0),
+                    BigInteger
+                ).label(counter_type.value)
+            )
+        else:
+            query = query.add_column(cast(expression.null(), BigInteger).label(counter_type.value))
+    return query
+
+def build_count_subquery(counter_type):
+    return db.session.query(DeviceCounters.device_id, func.coalesce(func.sum(DeviceCounters.value), 0).label('count')).\
+        join(RowProcessed, RowProcessed.analyzer == 'packet_analyzer').\
+        join(Packet, Packet.id == RowProcessed.last_row).\
+        filter(DeviceCounters.counter_type == counter_type).\
+        filter(DeviceCounters.last_update + func.make_interval(0,0,0,1) > Packet.date).\
+        group_by(DeviceCounters.device_id).\
+        subquery()
 
 def query_for_count(dev_query, gtw_query, asset_type):
     """
