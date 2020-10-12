@@ -397,7 +397,6 @@ class Alert(db.Model):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     type = Column(String(20), ForeignKey("alert_type.code"), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)
-    packet_id = Column(BigInteger, ForeignKey("packet.id"), nullable=False)
     device_id = Column(BigInteger, ForeignKey("device.id"), nullable=True)
     device_session_id = Column(BigInteger, ForeignKey("device_session.id"), nullable=True)
     gateway_id = Column(BigInteger, ForeignKey("gateway.id"), nullable=True)
@@ -421,7 +420,6 @@ class Alert(db.Model):
             'id': self.id,
             'type': self.type,
             'created_at': "{}".format(self.created_at) if self.created_at else None,
-            'packet_id': self.packet_id,
             'device_id': self.device_id,
             'data_collector_id': self.data_collector_id,
             'data_collector_name': self.data_collector.name,
