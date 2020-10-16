@@ -837,7 +837,7 @@ class ChangeEmailRequestAPI(Resource):
         if len(email_spaces) > 1:
             return internal("Email {} is not valid".format(email_without_space))
 
-        is_valid = validate_email(email_without_space, verify=True)
+        is_valid = validate_email(email_without_space)
 
         if not is_valid:
             return internal("Email {} is not valid".format(email_without_space))
@@ -1073,6 +1073,7 @@ class Register(Resource):
     @jwt_optional
     def post(self):
         """Registers the user."""
+        """If you alter the response message take note that you need to modify the front end."""
         admin_user_identity = get_jwt_identity()
         data = register_parser.parse_args()
 
@@ -1083,10 +1084,10 @@ class Register(Resource):
         elif USE_RECAPTCHA:
             recaptcha_token = data['recaptcha_token']
             if not recaptcha_token:
-                raise Error.BadRequest('Missing recaptcha token in request')
+                raise Error.InvalidUsage('Missing recaptcha token in request')
             recaptcha_valid = validate_recaptcha_token(recaptcha_token)
             if not recaptcha_valid:
-                raise Error.BadRequest('Invalid recaptcha token')
+                raise Error.InvalidUsage('Invalid recaptcha token')
         else:
             LOG.warning("Recaptcha was not validated because the credentials were not defined.")
 
@@ -1097,11 +1098,11 @@ class Register(Resource):
             user_roles = [2]
         else: # Creating new user into an existing organization
             if not "user_roles" in data or data["user_roles"] is None or len(data["user_roles"]) == 0:
-                raise Error.BadRequest("Missing user_roles attribute.")
+                raise Error.InvalidUsage("Missing user_roles attribute.")
             if len(data["user_roles"]) > 1:
-                raise Error.BadRequest("Cannot assign more than one role")
+                raise Error.InvalidUsage("Cannot assign more than one role")
             if int(data["user_roles"][0]) not in [1, 2]:
-                raise Error.BadRequest("Cannot assign this user role")
+                raise Error.InvalidUsage("Cannot assign this user role")
 
 
             admin_user = User.find_by_username(admin_user_identity)
@@ -1112,20 +1113,20 @@ class Register(Resource):
         email_spaces = email_without_space.split(" ")
 
         if len(email_spaces) > 1:
-            raise Error.Internal("Email {0} is not valid".format(email_without_space))
+            raise Error.InvalidUsage("Email {0} is not valid".format(email_without_space))
 
-        is_valid = validate_email(email_without_space, verify=True)
+        is_valid = validate_email(email_without_space)
         if not is_valid:
-            raise Error.Internal("Email {0} is not valid".format(email_without_space))
+            raise Error.InvalidUsage("Email {0} is not valid".format(email_without_space))
 
         username_without_space = data["username"].strip()
         username_spaces = username_without_space.split(" ")
 
         if len(username_spaces) > 1:
-            raise Error.Internal("User {0} is not valid".format(username_without_space))
+            raise Error.InvalidUsage("User {0} is not valid".format(username_without_space))
 
         if User.find_by_username(username_without_space):
-            raise Error.Internal("User {0} already exists".format(username_without_space))
+            raise Error.InvalidUsage("User {0} already exists".format(username_without_space))
 
         phone_without_space = None
         if data["phone"]:
@@ -1134,7 +1135,7 @@ class Register(Resource):
             phone_spaces = phone_without_space.split(" ")
 
             if len(phone_spaces) > 1:
-                raise Error.Internal("Phone {0} is not valid".format(phone_without_space))
+                raise Error.InvalidUsage("Phone {0} is not valid".format(phone_without_space))
 
             phone_without_prefix = ""
             phone_prefix = ""
@@ -1153,7 +1154,7 @@ class Register(Resource):
                     len(phone_prefix) < 2 or
                     phone_without_space.find("+") != 0 or
                     len(phone_without_space) > 30):
-                raise Error.Internal("Phone {0} is not valid".format(phone_without_space))
+                raise Error.InvalidUsage("Phone {0} is not valid".format(phone_without_space))
         
         list_user = User.find_by_email(email_without_space)
         if len(list_user) == 0:
@@ -1255,7 +1256,7 @@ class Register(Resource):
                 "message": "An email was sent to the account provided"
             }
         elif config.SEND_EMAILS:
-            raise Error.Internal("Something went wrong trying to send activation: " + \
+            raise Error.InvalidUsage("Something went wrong trying to send activation: " + \
                 "Activation mail not sent because there is no SMTP server configured.")
 
     

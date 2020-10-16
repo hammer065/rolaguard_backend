@@ -3,11 +3,39 @@ from iot_api import app
 from iot_api.user_api import db
 import werkzeug
 import marshmallow
-
+from flask import jsonify
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
 # Definition of exception types. In the future more types can be defined.
+
+# call as Error.InvalidUsage('This view is gone', status_code=410)
+class InvalidUsage(Exception):    
+    """This class is pretended to use on api responses when the data are invalid. By defaults It return the status_code 400.
+    
+    Example for call:
+    raise InvalidUsage('This view is gone', status_code=410)
+    raise InvalidUsage('This view is gone', status_code=422)
+    """
+    status_code = 400
+    def __init__(self, message, status_code=None, payload=None):
+        """Constructor class
+
+        Args:
+            message (String): The message for return
+            status_code (Integer, optional): Status code HTTP response. Defaults to 400.
+            payload (Dictionary, optional): Payload to return on response. Defaults to None.
+        """
+        Exception.__init__(self)
+        self.message = message
+        if status_code is not None:
+            self.status_code = status_code
+        self.payload = payload
+
+    def to_dict(self):
+        rv = dict(self.payload or ())
+        rv['message'] = self.message
+        return rv
 class BadRequest(Exception):
     html_code = 400
     error_msg = "Bad request"
@@ -35,6 +63,12 @@ class Internal(Exception):
 # Error handlers: these functions are called when an exception is raised.
 # In most cases they respond with a short message and the corresponding
 # HTML error code.
+
+@app.errorhandler(InvalidUsage)
+def handle_invalid_usage(error):
+    log.warning(str(error))
+    return error.to_dict(), error.status_code
+
 @app.errorhandler(BadRequest)
 def handle_400(error):
     log.error(str(error))
