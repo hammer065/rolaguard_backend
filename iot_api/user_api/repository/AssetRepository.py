@@ -376,7 +376,8 @@ def count_per_tag(organization_id, vendors=None, gateway_ids=None,
         dev_query = dev_query.filter(Device.vendor.in_(vendors))
         gtw_query = gtw_query.filter(Gateway.vendor.in_(vendors))
     if gateway_ids:
-        dev_query = dev_query.filter(GatewayToDevice.gateway_id.in_(gateway_ids))
+        dev_query = dev_query.join(GatewayToDevice, Device.id == GatewayToDevice.device_id)\
+            .filter(GatewayToDevice.gateway_id.in_(gateway_ids))
         gtw_query = gtw_query.filter(Gateway.id.in_(gateway_ids))
     if data_collector_ids:
         dev_query = dev_query.filter(Device.data_collector_id.in_(data_collector_ids))
