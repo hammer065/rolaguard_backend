@@ -40,6 +40,14 @@ class TagListAPI(Resource):
         
         name = request.args.get('name', type=str)
         color = request.args.get('color', type=str)
+
+        tag_list = TagRepository.list_all(
+            organization_id=organization_id
+            )
+        
+        if name in (tag.name for tag in tag_list):
+            return [{'code': 'EXISTING_NAME', 'message': 'Existing tag with that name'}], 400
+
         TagRepository.create(
             name=name,
             color=color,
@@ -77,6 +85,17 @@ class TagAPI(Resource):
         
         name = request.args.get('name', type=str, default=None)
         color = request.args.get('color', type=str, default=None)
+
+
+        previous_tag = TagRepository.get_with(tag_id, organization_id)
+
+        tag_list = TagRepository.list_all(
+            organization_id=organization_id
+            )
+        
+        if name in (tag.name for tag in tag_list) and name != previous_tag.name:
+            return [{'code': 'EXISTING_NAME', 'message': 'Existing tag with that name'}], 400
+
         TagRepository.update(
             tag_id=tag_id,
             name=name,
