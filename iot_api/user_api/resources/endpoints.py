@@ -1127,7 +1127,6 @@ class Register(Resource):
 
         if User.find_by_username(username_without_space):
             raise Error.InvalidUsage("User {0} already exists".format(username_without_space))
-
         phone_without_space = None
         if data["phone"]:
             phone_without_space = data["phone"].strip()  # delete whitespaces in phone (leading and trailing)
