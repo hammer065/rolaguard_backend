@@ -180,7 +180,7 @@ class User(db.Model):
         try:
             q1 = cls.query.filter(cls.deleted == False).filter(~cls.user_roles.any(UserToUserRole.user_role_id == 9))\
                 .filter(cls.id == UserToUserRole.user_id)
-            q2 = cls.query.filter(cls.active == False).filter(cls.id == AccountActivation.user_id)
+            q2 = cls.query.filter(cls.active == False,cls.deleted == False).filter(cls.id == AccountActivation.user_id)
             if organization_id is not None:
                 q1 = q1.filter(cls.organization_id == organization_id)
                 q2 = q2.filter(cls.organization_id == organization_id)
