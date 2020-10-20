@@ -108,18 +108,35 @@ class ResourceUsageListAPI(Resource):
         organization_id = get_jwt_claims().get('organization_id')
         page = request.args.get('page', default=1, type=int)
         size = request.args.get('size', default=20, type=int)
+        
+        asset_type = request.args.get('asset_type', default=None, type=str)
+
+        min_signal_strength = request.args.get('min_signal_strength', default = None, type=int)
+        max_signal_strength = request.args.get('max_signal_strength', default = None, type=int)
+        min_packet_loss = request.args.get('min_packet_loss', default = None, type=int)
+        max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+
+        if any(param is not None for param in [min_signal_strength, max_signal_strength, min_packet_loss, max_packet_loss]):
+            if asset_type is None:
+                asset_type = "device"
+            elif asset_type == "gateway":
+                return {
+                        'assets': [],
+                        'total_pages': 0,
+                        'total_items': 0
+                    }, 200
 
         results = ResourceUsageRepository.list_all(
             organization_id = organization_id,
             page = page, size = size,
-            asset_type = request.args.get('asset_type', default=None, type=str),
+            asset_type = asset_type,
             asset_status = request.args.get('asset_status', default=None, type=str),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             device_ids = request.args.getlist('device_ids[]'),
-            min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
-            max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
-            min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
-            max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+            min_signal_strength = min_signal_strength,
+            max_signal_strength = max_signal_strength,
+            min_packet_loss = min_packet_loss,
+            max_packet_loss = max_packet_loss
         )
 
         assets = [{
@@ -192,17 +209,30 @@ class ResourceUsagePerStatusCountAPI(Resource):
     @admin_regular_allowed
     def get(self):
         organization_id = get_jwt_claims().get('organization_id')   
+
+        asset_type = request.args.get('asset_type', default=None, type=str)
+
+        min_signal_strength = request.args.get('min_signal_strength', default = None, type=int)
+        max_signal_strength = request.args.get('max_signal_strength', default = None, type=int)
+        min_packet_loss = request.args.get('min_packet_loss', default = None, type=int)
+        max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+
+        if any(param is not None for param in [min_signal_strength, max_signal_strength, min_packet_loss, max_packet_loss]):
+            if asset_type is None:
+                asset_type = "device"
+            elif asset_type == "gateway":
+                asset_type = "none"
         
         groups = ResourceUsageRepository.count_per_status(
             organization_id = organization_id,
-            asset_type = request.args.get('asset_type', default=None, type=str),
+            asset_type = asset_type,
             asset_status = request.args.get('asset_status', default=None, type=str),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             device_ids = request.args.getlist('device_ids[]'),
-            min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
-            max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
-            min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
-            max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+            min_signal_strength = min_signal_strength,
+            max_signal_strength = max_signal_strength,
+            min_packet_loss = min_packet_loss,
+            max_packet_loss = max_packet_loss
         )
         return {
             'total_count': sum(group['count'] for group in groups),
@@ -227,16 +257,29 @@ class ResourceUsagePerGatewayCountAPI(Resource):
     def get(self):
         organization_id = get_jwt_claims().get('organization_id')
 
+        asset_type = request.args.get('asset_type', default=None, type=str)
+
+        min_signal_strength = request.args.get('min_signal_strength', default = None, type=int)
+        max_signal_strength = request.args.get('max_signal_strength', default = None, type=int)
+        min_packet_loss = request.args.get('min_packet_loss', default = None, type=int)
+        max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+
+        if any(param is not None for param in [min_signal_strength, max_signal_strength, min_packet_loss, max_packet_loss]):
+            if asset_type is None:
+                asset_type = "device"
+            elif asset_type == "gateway":
+                asset_type = "none"
+
         groups = ResourceUsageRepository.count_per_gateway(
             organization_id = organization_id,
-            asset_type = request.args.get('asset_type', default=None, type=str),
+            asset_type = asset_type,
             asset_status = request.args.get('asset_status', default=None, type=str),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             device_ids = request.args.getlist('device_ids[]'),
-            min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
-            max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
-            min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
-            max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+            min_signal_strength = min_signal_strength,
+            max_signal_strength = max_signal_strength,
+            min_packet_loss = min_packet_loss,
+            max_packet_loss = max_packet_loss
         )
         return {
             'total_count': sum(group['count'] for group in groups),
@@ -267,16 +310,29 @@ class ResourceUsagePerSignalStrengthCountAPI(Resource):
     def get(self):
         organization_id = get_jwt_claims().get('organization_id')
 
+        asset_type = request.args.get('asset_type', default=None, type=str)
+
+        min_signal_strength = request.args.get('min_signal_strength', default = None, type=int)
+        max_signal_strength = request.args.get('max_signal_strength', default = None, type=int)
+        min_packet_loss = request.args.get('min_packet_loss', default = None, type=int)
+        max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+
+        if any(param is not None for param in [min_signal_strength, max_signal_strength, min_packet_loss, max_packet_loss]):
+            if asset_type is None:
+                asset_type = "device"
+            elif asset_type == "gateway":
+                asset_type = "none"
+
         groups = ResourceUsageRepository.count_per_signal_strength(
             organization_id = organization_id,
-            asset_type = request.args.get('asset_type', default=None, type=str),
+            asset_type = asset_type,
             asset_status = request.args.get('asset_status', default=None, type=str),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             device_ids = request.args.getlist('device_ids[]'),
-            min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
-            max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
-            min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
-            max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+            min_signal_strength = min_signal_strength,
+            max_signal_strength = max_signal_strength,
+            min_packet_loss = min_packet_loss,
+            max_packet_loss = max_packet_loss
         )
         # Make the ids a JSON object instead of a tuple
         for signal_range in groups:
@@ -314,16 +370,29 @@ class ResourceUsagePerPacketLossCountAPI(Resource):
     def get(self):
         organization_id = get_jwt_claims().get('organization_id')
 
+        asset_type = request.args.get('asset_type', default=None, type=str)
+
+        min_signal_strength = request.args.get('min_signal_strength', default = None, type=int)
+        max_signal_strength = request.args.get('max_signal_strength', default = None, type=int)
+        min_packet_loss = request.args.get('min_packet_loss', default = None, type=int)
+        max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+
+        if any(param is not None for param in [min_signal_strength, max_signal_strength, min_packet_loss, max_packet_loss]):
+            if asset_type is None:
+                asset_type = "device"
+            elif asset_type == "gateway":
+                asset_type = "none"
+
         groups = ResourceUsageRepository.count_per_packet_loss(
             organization_id = organization_id,
-            asset_type = request.args.get('asset_type', default=None, type=str),
+            asset_type = asset_type,
             asset_status = request.args.get('asset_status', default=None, type=str),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             device_ids = request.args.getlist('device_ids[]'),
-            min_signal_strength = request.args.get('min_signal_strength', default = None, type=int),
-            max_signal_strength = request.args.get('max_signal_strength', default = None, type=int),
-            min_packet_loss = request.args.get('min_packet_loss', default = None, type=int),
-            max_packet_loss = request.args.get('max_packet_loss', default = None, type=int)
+            min_signal_strength = min_signal_strength,
+            max_signal_strength = max_signal_strength,
+            min_packet_loss = min_packet_loss,
+            max_packet_loss = max_packet_loss
         )
         # Make the ids a JSON object instead of a tuple
         for loss_range in groups:

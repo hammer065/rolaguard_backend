@@ -240,7 +240,7 @@ def count_per_status(organization_id, asset_type=None, asset_status=None,
                     min_packet_loss=None, max_packet_loss=None):
     """ Count assets (devices+gateways) grouped by status (connected/disconnected).
     Parameters: 
-        - asset_type: for filtering, count only this type of asset ("device" or "gateway").
+        - asset_type: for filtering, count only this type of asset ("device", "gateway" or "none" for no assets).
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
@@ -289,12 +289,14 @@ def count_per_status(organization_id, asset_type=None, asset_status=None,
             'count': 0
         }
     }
-    for row in result:
-        if row.connected:
-            status = 'connected'
-        else:
-            status = 'disconnected'
-        counts[status]['count'] += row.count_result
+
+    if asset_type is not 'none':
+        for row in result:
+            if row.connected:
+                status = 'connected'
+            else:
+                status = 'disconnected'
+            counts[status]['count'] += row.count_result
 
     return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
 
@@ -304,7 +306,7 @@ def count_per_gateway(organization_id, asset_type=None, asset_status=None,
                     min_packet_loss=None, max_packet_loss=None):
     """ Count assets (devices+gateways) grouped by gateway.
     Parameters: 
-        - asset_type: for filtering, count only this type of asset ("device" or "gateway").
+        - asset_type: for filtering, count only this type of asset ("device", "gateway" or "none" for no assets).
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
@@ -345,9 +347,11 @@ def count_per_gateway(organization_id, asset_type=None, asset_status=None,
     result = query_for_count(dev_query = dev_query, gtw_query = gtw_query, asset_type = asset_type)
 
     counts = defaultdict(lambda: {'name' : None, 'count' : 0})
-    for row in result:
-        counts[row.id]['name'] = row.gw_hex_id
-        counts[row.id]['count'] += row.count_result
+    
+    if asset_type is not 'none':
+        for row in result:
+            counts[row.id]['name'] = row.gw_hex_id
+            counts[row.id]['count'] += row.count_result
 
     return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
 
@@ -357,7 +361,7 @@ def count_per_signal_strength(organization_id, asset_type=None, asset_status=Non
                     min_packet_loss=None, max_packet_loss=None):
     """ Count assets (devices+gateways) grouped by specific ranges of signal strength values
     Parameters: 
-        - asset_type: for filtering, count only this type of asset ("device" or "gateway").
+        - asset_type: for filtering, count only this type of asset ("device", "gateway" or "none" for no assets).
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
@@ -409,16 +413,25 @@ def count_per_signal_strength(organization_id, asset_type=None, asset_status=Non
     result = query_for_count(dev_query = dev_query, gtw_query = gtw_query, asset_type = asset_type)
 
     counts = defaultdict(lambda: {'name' : None, 'count' : 0})
-    for row in result:
-        if len(row) != len(range_names):
-            log.error(f"Length of range_names and length of row in signal strength query result don't match ({len(range_names)}, {len(row)})")
-            raise Exception()
-        for i in range(0, len(row)):
+
+    if asset_type is not 'none':
+        for row in result:
+            if len(row) != len(range_names):
+                log.error(f"Length of range_names and length of row in signal strength query result don't match ({len(range_names)}, {len(row)})")
+                raise Exception()
+            for i in range(0, len(row)):
+                name = range_names[i]
+                L = range_limits[i]
+                R = range_limits[i+1]
+                counts[(L,R)]['name'] = name
+                counts[(L,R)]['count'] += row[i]
+    else:
+        for i in range(0, len(range_names)):
             name = range_names[i]
             L = range_limits[i]
             R = range_limits[i+1]
             counts[(L,R)]['name'] = name
-            counts[(L,R)]['count'] += row[i]
+            counts[(L,R)]['count'] = 0
 
     return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
 
@@ -428,7 +441,7 @@ def count_per_packet_loss(organization_id, asset_type=None, asset_status=None,
                     min_packet_loss=None, max_packet_loss=None):
     """ Count assets (devices+gateways) grouped by specific ranges of packet loss values
     Parameters: 
-        - asset_type: for filtering, count only this type of asset ("device" or "gateway").
+        - asset_type: for filtering, count only this type of asset ("device", "gateway" or "none" for no assets).
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
@@ -488,16 +501,25 @@ def count_per_packet_loss(organization_id, asset_type=None, asset_status=None,
     result = query_for_count(dev_query = dev_query, gtw_query = gtw_query, asset_type = asset_type)
 
     counts = defaultdict(lambda: {'name' : None, 'count' : 0})
-    for row in result:
-        if len(row) != len(range_names):
-            log.error(f"Length of range_names and length of row in packet loss query result don't match ({len(range_names)}, {len(row)})")
-            raise Exception()
-        for i in range(0, len(row)):
+    
+    if asset_type is not 'none':
+        for row in result:
+            if len(row) != len(range_names):
+                log.error(f"Length of range_names and length of row in packet loss query result don't match ({len(range_names)}, {len(row)})")
+                raise Exception()
+            for i in range(0, len(row)):
+                name = range_names[i]
+                L = range_limits[i]
+                R = range_limits[i+1]
+                counts[(L,R)]['name'] = name
+                counts[(L,R)]['count'] += row[i]
+    else:
+        for i in range(0, len(range_names)):
             name = range_names[i]
             L = range_limits[i]
             R = range_limits[i+1]
             counts[(L,R)]['name'] = name
-            counts[(L,R)]['count'] += row[i]
+            counts[(L,R)]['count'] = 0
 
     return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
     
@@ -596,6 +618,8 @@ def query_for_count(dev_query, gtw_query, asset_type):
         result = dev_query.all()
     elif asset_type == "gateway":
         result = gtw_query.all()
+    elif asset_type == "none":
+        result = []
     else:
         raise Error.BadRequest("Invalid asset type parameter")
     return result
