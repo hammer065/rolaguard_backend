@@ -232,9 +232,9 @@ class UserInfoAPI(Resource):
 
         if not current_user:
             return internal("User {0} could not be found.".format(username.lower()))
-        # restrict user update to user admin, super admin and profile owner
+        
+        # restrict user update to user admin, super admin
         if not is_admin_user(user.id):
-            if current_user.username != user.username:
                 return forbidden()
 
         if not user.active:
