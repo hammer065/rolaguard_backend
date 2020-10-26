@@ -94,6 +94,7 @@ class ResourceUsageListAPI(Resource):
         - size: for pagination.
         - asset_type: for filtering, count only this type of asset ("device" or "gateway").
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - data_collector_ids[]: for filtering, count only the assets belongs to these data collectors.
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
@@ -131,6 +132,7 @@ class ResourceUsageListAPI(Resource):
             page = page, size = size,
             asset_type = asset_type,
             asset_status = request.args.get('asset_status', default=None, type=str),
+            data_collector_ids=request.args.getlist('data_collector_ids[]'),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             device_ids = request.args.getlist('device_ids[]'),
             min_signal_strength = min_signal_strength,
@@ -197,6 +199,7 @@ class ResourceUsagePerStatusCountAPI(Resource):
     Request parameters: 
         - asset_type: for filtering, count only this type of asset ("device" or "gateway").
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - data_collector_ids[]: for filtering, count only the assets belongs to these data collectors.
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
@@ -227,6 +230,7 @@ class ResourceUsagePerStatusCountAPI(Resource):
             organization_id = organization_id,
             asset_type = asset_type,
             asset_status = request.args.get('asset_status', default=None, type=str),
+            data_collector_ids = request.args.getlist('data_collector_ids[]'),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             device_ids = request.args.getlist('device_ids[]'),
             min_signal_strength = min_signal_strength,
@@ -244,6 +248,7 @@ class ResourceUsagePerGatewayCountAPI(Resource):
     Request parameters: 
         - asset_type: for filtering, count only this type of asset ("device" or "gateway").
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - data_collector_ids[]: for filtering, count only the assets belongs to these data collectors.
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
@@ -274,6 +279,7 @@ class ResourceUsagePerGatewayCountAPI(Resource):
             organization_id = organization_id,
             asset_type = asset_type,
             asset_status = request.args.get('asset_status', default=None, type=str),
+            data_collector_ids = request.args.getlist('data_collector_ids[]'),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             device_ids = request.args.getlist('device_ids[]'),
             min_signal_strength = min_signal_strength,
@@ -291,6 +297,7 @@ class ResourceUsagePerSignalStrengthCountAPI(Resource):
     Request parameters: 
         - asset_type: for filtering, count only this type of asset ("device" or "gateway").
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - data_collector_ids[]: for filtering, count only the assets belongs to these data collectors.
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
@@ -327,6 +334,7 @@ class ResourceUsagePerSignalStrengthCountAPI(Resource):
             organization_id = organization_id,
             asset_type = asset_type,
             asset_status = request.args.get('asset_status', default=None, type=str),
+            data_collector_ids = request.args.getlist('data_collector_ids[]'),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             device_ids = request.args.getlist('device_ids[]'),
             min_signal_strength = min_signal_strength,
@@ -351,6 +359,7 @@ class ResourceUsagePerPacketLossCountAPI(Resource):
     Request parameters: 
         - asset_type: for filtering, count only this type of asset ("device" or "gateway").
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - data_collector_ids[]: for filtering, count only the assets belongs to these data collectors.
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
@@ -387,6 +396,7 @@ class ResourceUsagePerPacketLossCountAPI(Resource):
             organization_id = organization_id,
             asset_type = asset_type,
             asset_status = request.args.get('asset_status', default=None, type=str),
+            data_collector_ids = request.args.getlist('data_collector_ids[]'),
             gateway_ids = request.args.getlist('gateway_ids[]'),
             device_ids = request.args.getlist('device_ids[]'),
             min_signal_strength = min_signal_strength,

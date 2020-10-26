@@ -108,7 +108,7 @@ def get_with(asset_id, asset_type, organization_id=None):
     return asset
 
 def list_all(organization_id, page=None, size=None,
-            asset_type=None, asset_status=None, 
+            asset_type=None, asset_status=None, data_collector_ids=None,
             gateway_ids=None, device_ids= None,
             min_signal_strength=None, max_signal_strength=None,
             min_packet_loss=None, max_packet_loss=None):
@@ -116,6 +116,7 @@ def list_all(organization_id, page=None, size=None,
     Parameters: 
         - asset_type: for filtering, count only this type of asset ("device" or "gateway").
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - data_collector_ids[]: for filtering, count only the assets belongs to specific data collectors.
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
@@ -209,6 +210,7 @@ def list_all(organization_id, page=None, size=None,
         gtw_query = gtw_query,
         asset_type = asset_type,
         asset_status = asset_status,
+        data_collector_ids = data_collector_ids,
         gateway_ids = gateway_ids,
         device_ids = device_ids,
         min_signal_strength = min_signal_strength,
@@ -235,6 +237,7 @@ def list_all(organization_id, page=None, size=None,
         return asset_query.all()
 
 def count_per_status(organization_id, asset_type=None, asset_status=None,
+                    data_collector_ids=None,
                     gateway_ids=None, device_ids=None,
                     min_signal_strength=None, max_signal_strength=None,
                     min_packet_loss=None, max_packet_loss=None):
@@ -242,6 +245,7 @@ def count_per_status(organization_id, asset_type=None, asset_status=None,
     Parameters: 
         - asset_type: for filtering, count only this type of asset ("device", "gateway" or "none" for no assets).
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - data_collector_ids[]: for filtering, count only the assets belongs to specific data collector.
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
@@ -267,6 +271,7 @@ def count_per_status(organization_id, asset_type=None, asset_status=None,
         gtw_query = gtw_query,
         asset_type = asset_type,
         asset_status = asset_status,
+        data_collector_ids=data_collector_ids,
         gateway_ids = gateway_ids,
         device_ids = device_ids,
         min_signal_strength = min_signal_strength,
@@ -301,6 +306,7 @@ def count_per_status(organization_id, asset_type=None, asset_status=None,
     return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
 
 def count_per_gateway(organization_id, asset_type=None, asset_status=None,
+                    data_collector_ids=None,
                     gateway_ids=None, device_ids=None,
                     min_signal_strength=None, max_signal_strength=None,
                     min_packet_loss=None, max_packet_loss=None):
@@ -308,6 +314,7 @@ def count_per_gateway(organization_id, asset_type=None, asset_status=None,
     Parameters: 
         - asset_type: for filtering, count only this type of asset ("device", "gateway" or "none" for no assets).
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - data_collector_ids[]: for filtering, count only the assets belongs to specific data collector.
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
@@ -335,6 +342,7 @@ def count_per_gateway(organization_id, asset_type=None, asset_status=None,
         gtw_query = gtw_query,
         asset_type = asset_type,
         asset_status = asset_status,
+        data_collector_ids = data_collector_ids,
         gateway_ids = gateway_ids,
         device_ids = device_ids,
         min_signal_strength = min_signal_strength,
@@ -356,6 +364,7 @@ def count_per_gateway(organization_id, asset_type=None, asset_status=None,
     return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
 
 def count_per_signal_strength(organization_id, asset_type=None, asset_status=None, 
+                    data_collector_ids=None,
                     gateway_ids=None, device_ids=None,
                     min_signal_strength=None, max_signal_strength=None,
                     min_packet_loss=None, max_packet_loss=None):
@@ -363,6 +372,7 @@ def count_per_signal_strength(organization_id, asset_type=None, asset_status=Non
     Parameters: 
         - asset_type: for filtering, count only this type of asset ("device", "gateway" or "none" for no assets).
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - data_collector_ids[]: for filtering, count only the assets connected to ANY one of these data collectors.
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
@@ -401,6 +411,7 @@ def count_per_signal_strength(organization_id, asset_type=None, asset_status=Non
         gtw_query = gtw_query,
         asset_type = asset_type,
         asset_status = asset_status,
+        data_collector_ids = data_collector_ids,
         gateway_ids = gateway_ids,
         device_ids = device_ids,
         min_signal_strength = min_signal_strength,
@@ -436,6 +447,7 @@ def count_per_signal_strength(organization_id, asset_type=None, asset_status=Non
     return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
 
 def count_per_packet_loss(organization_id, asset_type=None, asset_status=None, 
+                    data_collector_ids=None,
                     gateway_ids=None, device_ids=None,
                     min_signal_strength=None, max_signal_strength=None,
                     min_packet_loss=None, max_packet_loss=None):
@@ -443,6 +455,7 @@ def count_per_packet_loss(organization_id, asset_type=None, asset_status=None,
     Parameters: 
         - asset_type: for filtering, count only this type of asset ("device", "gateway" or "none" for no assets).
         - asset_status: for filtering, count only assets with this status ("connected" or "disconnected").
+        - data_collector_ids[]: for filtering, count only the assets connected to ANY one of these data collectors.
         - gateway_ids[]: for filtering, count only the assets connected to ANY one of these gateways.
         - device_ids[]: for filtering, list only the assets related to ANY of these devices
         - min_signal_strength: for filtering, count only the assets with signal strength not lower than this value (dBm)
@@ -489,6 +502,7 @@ def count_per_packet_loss(organization_id, asset_type=None, asset_status=None,
         gtw_query = gtw_query,
         asset_type = asset_type,
         asset_status = asset_status,
+        data_collector_ids=data_collector_ids,
         gateway_ids = gateway_ids,
         device_ids = device_ids,
         min_signal_strength = min_signal_strength,
@@ -524,6 +538,7 @@ def count_per_packet_loss(organization_id, asset_type=None, asset_status=None,
     return [{'id' : k, 'name':v['name'], 'count':v['count']} for k, v in counts.items()]
     
 def add_filters(dev_query, gtw_query, asset_type=None, asset_status=None, 
+                data_collector_ids = None,
                 gateway_ids=None, device_ids=None, 
                 min_signal_strength=None, max_signal_strength=None,
                 min_packet_loss=None, max_packet_loss=None):
@@ -539,6 +554,10 @@ def add_filters(dev_query, gtw_query, asset_type=None, asset_status=None,
         gtw_query = gtw_query.filter(not_(Gateway.connected))
     elif asset_status is not None:
         raise Error.BadRequest("Invalid asset status parameter")
+    
+    if data_collector_ids:
+        dev_query = dev_query.filter(Device.data_collector_id.in_(data_collector_ids))
+        gtw_query = gtw_query.filter(Gateway.data_collector_id.in_(data_collector_ids))
 
     if gateway_ids:
         wanted_devs = db.session.\
