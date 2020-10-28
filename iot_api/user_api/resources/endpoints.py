@@ -228,13 +228,13 @@ class UserInfoAPI(Resource):
         user = User.find_by_username(get_jwt_identity())
         if not user:
             return forbidden()
-        current_user = User.find_by_username(username)
 
+        current_user = User.find_by_username(username)
         if not current_user:
             return internal("User {0} could not be found.".format(username.lower()))
         
-        # restrict user update to user admin, super admin
-        if not is_admin_user(user.id):
+        # restrict user update to user admin, super admin and profile owner
+        if not is_admin_user(user.id) and current_user.username != user.username:
                 return forbidden()
 
         if not user.active:
@@ -262,14 +262,19 @@ class UserInfoAPI(Resource):
             return internal("Phone {0} is not valid".format(phone_without_space))
 
         user_roles = data["user_roles"]
+
+        # updating user roles only allowed to admin user.
+        if user_roles and not is_admin_user(user.id):
+            return forbidden()
+        
         user_roles_int = list(map(lambda x: int(x), user_roles))  # roles to be added
 
-        if 9 in user_roles_int:
+        if RoleTypes.System.value in user_roles_int:
             LOG.error("Can not include one of the roles")
             return forbidden()
 
         try:
-
+            
             current_user_roles = UserToUserRole.find_all_user_role_by_user_id(current_user.id)
             current_user_roles_id = list(map(lambda x: x.user_role_id, current_user_roles))
             account_activation_list = AccountActivation.find_active_tokens_by_user_id(current_user.id)
