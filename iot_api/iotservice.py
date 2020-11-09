@@ -165,6 +165,10 @@ api.add_resource(res.ResourceUsagePerGatewayCountAPI, '/api/v1.0/resource_usage/
 api.add_resource(res.ResourceUsagePerSignalStrengthCountAPI, '/api/v1.0/resource_usage/count/signal')
 api.add_resource(res.ResourceUsagePerPacketLossCountAPI, '/api/v1.0/resource_usage/count/loss')
 
+#region Asset
+api.add_resource(res.AssetListAPI, '/api/v1.0/assets/search')
+#endregion
+
 if __name__ == '__main__':
     socketio.run(app, port=5000)
     db.init_app(app)
