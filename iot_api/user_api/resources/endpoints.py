@@ -1938,7 +1938,7 @@ class DevicesListCountAPI(Resource):
         page = request.args.get('page')
         size = request.args.get('size')
         group_by = request.args.get('group_by')
-        data_collector = request.args.get('data_collector[]')
+        data_collector = request.args.getlist('data_collector[]')
 
         if since:
             try:
