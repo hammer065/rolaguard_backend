@@ -26,7 +26,7 @@ def create(name, color, organization_id):
     tag = Tag(name=name, color=color, organization_id=organization_id)
     db.session.add(tag)
     db.session.commit()
-    return tag.id
+    return tag
 
 def get_with(tag_id, organization_id):
     """

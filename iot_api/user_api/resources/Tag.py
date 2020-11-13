@@ -48,12 +48,12 @@ class TagListAPI(Resource):
         if name in (tag.name for tag in tag_list):
             return [{'code': 'EXISTING_NAME', 'message': 'Existing tag with that name'}], 400
 
-        TagRepository.create(
+        tag = TagRepository.create(
             name=name,
             color=color,
             organization_id=organization_id
             )
-        return {"message": "Tag created"}, 200
+        return {"id": tag.id, "name": tag.name, "color": tag.color}, 200
 
 
 class TagAPI(Resource):
