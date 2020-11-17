@@ -41,3 +41,6 @@ from .ResourceUsage import (
     ResourceUsagePerSignalStrengthCountAPI,
     ResourceUsagePerPacketLossCountAPI
     )
+from .Asset import (
+    AssetListAPI
+)
