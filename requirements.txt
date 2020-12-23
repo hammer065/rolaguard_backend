@@ -26,3 +26,5 @@ eventlet
 flask_socketio
 kombu
 py3DNS
+flask_socketio
+flask-session

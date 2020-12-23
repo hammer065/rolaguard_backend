@@ -12,6 +12,7 @@ from flask_bcrypt import Bcrypt
 from flask_mail import Mail
 from iot_api import config
 from cryptography.fernet import Fernet
+from flask_session import Session
 import pika
 import os, sys
 from flask_socketio import SocketIO
@@ -27,6 +28,9 @@ app.config['JWT_BLACKLIST_ENABLED'] = True
 app.config['JWT_BLACKLIST_TOKEN_CHECKS'] = ['access', 'refresh']
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
 
 try:
     app.config['SECRET'] = os.environ['SECRET']

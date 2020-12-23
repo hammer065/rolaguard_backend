@@ -12,7 +12,7 @@ from email.mime.text import MIMEText
 
 import dateutil.parser as dp
 import requests
-from flask import jsonify, make_response, request, render_template
+from flask import jsonify, make_response, request, render_template, session
 from flask_jwt_extended import (create_access_token, create_refresh_token, jwt_optional, jwt_required, get_jwt_identity,
                                 get_raw_jwt,
                                 jwt_refresh_token_required)
@@ -122,6 +122,11 @@ user_change_password_by_recovery_parser.add_argument("password", help="Missing p
 
 add_recipient_parser = reqparse.RequestParser()
 add_recipient_parser.add_argument("name", help="Missing name attribute.", required=True)
+
+ttn_credentials_parser = reqparse.RequestParser()
+ttn_credentials_parser.add_argument("user", dest="username", help="You have to enter username",
+                          required=True)
+ttn_credentials_parser.add_argument("password", help="You have to enter a password", required=True)
 
 
 # verify if specified username belongs to user with role 'Regular_User'
@@ -1868,6 +1873,58 @@ class DataCollectorTypesAPI(Resource):
         types = DataCollectorType.find_all()
 
         return list(map(lambda type: type.to_json(), types))
+
+class DataCollectorTTNAccount(Resource):
+    @jwt_required
+    def post(self):
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+
+        if not user or not is_admin_user(user.id):
+            return forbidden()
+
+        data = ttn_credentials_parser.parse_args()
+        ttn_user = data["username"]
+        ttn_password = data["password"]
+        
+        if not ttn_user or not ttn_password:
+            return bad_request("TTN credentials not provided")
+
+        ses = requests.Session()
+        ses.headers['Content-type'] = 'application/json'
+        res = ses.post('https://account.thethingsnetwork.org/api/v2/users/login', data=json.dumps({"username": ttn_user, "password": ttn_password}))
+        ses.get('https://console.thethingsnetwork.org/login')
+
+        if res.status_code != 200:
+            return not_found()
+
+        data_access = ses.get('https://console.thethingsnetwork.org/refresh', timeout=30)
+
+        if data_access.status_code != 200:
+            return internal("couldn't get TTN access data")
+
+        access_token = data_access.json().get('access_token')
+        res = ses.get('https://console.thethingsnetwork.org/api/gateways', headers={'Authorization': 'Bearer {}'.format(access_token)}, timeout=30)
+
+        session['user_gateways'] = [{"id":gateway.get('id'), "description":gateway.get('attributes').get('description')} for gateway in res.json()]
+
+        return jsonify({"message": "Credentials processed successfully"})
+
+class DataCollectorUserGateways(Resource):
+    @jwt_required
+    def get(self):
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+
+        if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
+            return forbidden()
+
+        user_gateways = session.get('user_gateways')
+
+        if not user_gateways:
+            return not_found()
+
+        return user_gateways
 
 
 class DevicesListAPI(Resource):
