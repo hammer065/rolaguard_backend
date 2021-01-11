@@ -1896,7 +1896,7 @@ class DataCollectorTTNAccount(Resource):
         ses.get('https://console.thethingsnetwork.org/login')
 
         if res.status_code != 200:
-            return not_found()
+            return internal("Login failed with provided credentials")
 
         data_access = ses.get('https://console.thethingsnetwork.org/refresh', timeout=30)
 
