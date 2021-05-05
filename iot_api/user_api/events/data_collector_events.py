@@ -66,8 +66,13 @@ def handle_test_events(ch, method, properties, body):
 
     key = 'TestResponse-'+event['data_collector_id']
     result = GlobalData(key=key, value=json.dumps(event))
-    result.save_to_db()
-    LOG.debug("Event saved to db")
+    try:
+        result.save_to_db()
+    except Exception:
+        result.rollback()
+        LOG.warn("Couldn\'t save the event, making a rollback")
+    else:
+        LOG.debug("Event saved to db")
     # emit_data_collector_event_ws(TESTED_DATA_COLLECTOR, event, event.get('data_collector_id'))
 # endregion
 

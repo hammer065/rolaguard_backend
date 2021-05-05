@@ -2,7 +2,7 @@ flask
 werkzeug
 flask-restful
 flask-httpauth
-flask-jwt-extended
+flask-jwt-extended==3.25.0
 flask_sqlalchemy
 validate_email
 requests
