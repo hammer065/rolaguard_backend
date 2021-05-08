@@ -43,6 +43,9 @@ class Organization(db.Model):
         db.session.delete(self)
         db.session.commit()
 
+    def rollback(self):
+        db.session.rollback()
+
     @classmethod
     def find_by_name(cls, name):
         return cls.query.filter_by(name=name).first()
@@ -137,6 +140,9 @@ class User(db.Model):
     def update_to_db(self):
         db.session.commit()
 
+    def rollback(self):
+        db.session.rollback()
+
     @classmethod
     def find_by_username(cls, username):
         try:
@@ -218,6 +224,9 @@ class UserRole(db.Model):
         db.session.add(self)
         db.session.commit()
 
+    def rollback(self):
+        db.session.rollback()
+
     @classmethod
     def find_by_id(cls, id):
         return cls.query.filter_by(id=id).first()
@@ -261,6 +270,9 @@ class UserToUserRole(db.Model):
     def delete_from_db(self):
         db.session.delete(self)
         db.session.commit()
+
+    def rollback(self):
+        db.session.rollback()
 
     @classmethod
     def find_all_user_by_user_role_id(cls, user_role_id):
@@ -306,6 +318,9 @@ class AccountActivation(db.Model):
     def delete_from_db(self):
         db.session.delete(self)
         db.session.commit()
+
+    def rollback(self):
+        db.session.rollback()
 
     @classmethod
     def find_by_token(cls, token):

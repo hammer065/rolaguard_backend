@@ -32,6 +32,9 @@ class SendMailAttempts(db.Model):
         db.session.delete(self)
         db.session.commit()
 
+    def rollback(self):
+        db.session.rollback()
+
     @classmethod
     def find_by_user(cls, user_id):
         return cls.query.filter_by(user_id=user_id).first()

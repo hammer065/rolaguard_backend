@@ -22,6 +22,9 @@ class GlobalData(db.Model):
         db.session.delete(self)
         db.session.commit()
 
+    def rollback(self):
+        db.session.rollback()
+
     @classmethod
     def find_by_key(cls, key):
         return cls.query.filter_by(key=key).first()

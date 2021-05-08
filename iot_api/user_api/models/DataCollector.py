@@ -119,6 +119,9 @@ class DataCollector(db.Model):
         self.deleted_at = datetime.now()
         db.session.commit()
 
+    def rollback(self):
+        db.session.rollback()
+
     @classmethod
     def get(cls, id):
         return db.session.query(cls).get(id)
