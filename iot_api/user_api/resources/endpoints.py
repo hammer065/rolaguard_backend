@@ -341,7 +341,11 @@ class UserInfoAPI(Resource):
                 if user_role_id not in user_roles_int:
                     if current_user.active or isinstance(current_user_role, UserToUserRole):
                         # deleting obsolete role from active user or not active created before delay
-                        current_user_role.delete_from_db()
+                        try:
+                            current_user_role.delete_from_db()
+                        except Exception as exc:
+                            current_user_role.rollback()
+                            raise exc                 
 
             # add new added roles to user
 
@@ -354,10 +358,18 @@ class UserInfoAPI(Resource):
                                 user_id=current_user.id,
                                 user_role_id=role_to_add
                             )
-                            new_user_to_user_role.save_to_db()
+                            try:
+                                new_user_to_user_role.save_to_db()
+                            except Exception as exc:
+                                new_user_to_user_role.rollback()
+                                raise exc                                
                         elif account_activation:  # adding role to not active user created after delay
                             account_activation.user_roles_id = role_to_add
-                            account_activation.update_to_db()
+                            try:
+                                account_activation.update_to_db()
+                            except Exception as exc:
+                                account_activation.rollback()
+                                raise exc  
                     else:
                         LOG.error(f"Error creating User to User Role relation: User Role with id ({role_to_add}) does not exist!")
 
@@ -374,7 +386,11 @@ class UserInfoAPI(Resource):
             current_user.full_name = data["full_name"]
             current_user.phone = phone_without_space
             current_user.collectors = collectors
-            current_user.update_to_db()
+            try:
+                current_user.update_to_db()
+            except Exception as exc:
+                current_user.rollback()
+                raise exc  
 
             return jsonify({"message": "User {0} updated successfully".format(current_user.username)})
         except Exception as exc:
@@ -417,6 +433,7 @@ class UserInfoAPI(Resource):
             return jsonify({"message": "User {0} was deleted successfully.".format(username.lower())})
 
         except Exception as exc:
+            current_user.rollback()
             LOG.error("Error trying to delete User: {0}".format(exc))
 
             return internal("Something went wrong")
@@ -446,7 +463,11 @@ class ResendActivationAPI(Resource):
             for account_activation in account_activation_list:
                 if account_activation.active:
                     account_activation.active = False
-                    account_activation.update_to_db()
+                    try:
+                        account_activation.update_to_db()
+                    except Exception as exc:
+                        account_activation.rollback()
+                        raise exc  
 
             if account_activation_list:
                 user_roles_id = account_activation_list[0].user_roles_id
@@ -487,8 +508,11 @@ class ResendActivationAPI(Resource):
                 server.sendmail(config.SMTP_SENDER, new_user.email, msg.as_string())
                 server.close()
                 LOG.debug("finished email sending")
-                new_account_activation.save_to_db()
-
+                try:
+                    new_account_activation.save_to_db()
+                except Exception as exc:
+                    new_account_activation.rollback()
+                    raise exc
                 return jsonify({"message": "Activation E-mail Resent Successfully"})
             elif config.SEND_EMAILS:
                 LOG.error("Mail not sent since there is not SMTP server configured.")
@@ -564,7 +588,11 @@ class CreatePasswordAPI(Resource):
                 encoded_token = token.hexdigest()
 
                 account_activation.active=False
-                account_activation.update_to_db()
+                try:
+                    account_activation.update_to_db()
+                except Exception as exc:
+                    account_activation.rollback()
+                    raise exc  
 
                 new_account_activation = AccountActivation(
                     user_id=User.find_by_username(current_user.username).id,
@@ -573,7 +601,11 @@ class CreatePasswordAPI(Resource):
                     active=True,
                     user_roles_id=account_activation.user_roles_id
                 )
-                new_account_activation.save_to_db()
+                try:
+                    new_account_activation.save_to_db()
+                except Exception as exc:
+                    new_account_activation.rollback()
+                    raise exc
 
                 full_url = config.BRAND_URL + "activation/" + str(encoded_token)
 
@@ -614,14 +646,22 @@ class CreatePasswordAPI(Resource):
 
             current_user.password = User.generate_hash(data["password"])
             current_user.active = True
-            current_user.update_to_db()
+            try:
+                current_user.update_to_db()
+            except Exception as exc:
+                current_user.rollback()
+                raise exc  
 
             # Deactivate active tokens
             account_activation_list = AccountActivation.find_active_tokens_by_user_id(account_activation.user_id)
 
             for account_activation in account_activation_list:
                 account_activation.active = False
-                account_activation.update_to_db()
+                try:
+                    account_activation.update_to_db()
+                except Exception as exc:
+                    account_activation.rollback()
+                    raise exc  
 
             # create organization
             organization_id = current_user.organization_id
@@ -632,10 +672,18 @@ class CreatePasswordAPI(Resource):
                 new_organization = Organization(
                     name=username_without_space
                 )
-                new_organization.save_to_db()
+                try:
+                    new_organization.save_to_db()
+                except Exception as exc:
+                    new_organization.rollback()
+                    raise exc
                 organization_id = new_organization.id
                 current_user.organization_id = organization_id
-                current_user.update_to_db()
+                try:
+                    current_user.update_to_db()
+                except Exception as exc:
+                    current_user.rollback()
+                    raise exc 
 
                 info_email = os.environ['INFO_EMAIL'] if 'INFO_EMAIL' in os.environ else None
 
@@ -681,7 +729,11 @@ class CreatePasswordAPI(Resource):
                             user_id=current_user.id,
                             user_role_id=role_id
                         )
-                        new_user_to_user_role.save_to_db()
+                        try:
+                            new_user_to_user_role.save_to_db()
+                        except Exception as exc:
+                            new_user_to_user_role.rollback()
+                            raise exc
                     else:
                         print(f"Error creating User to User Role relation: User Role with id ({role}) does not exist!")
 
@@ -746,7 +798,11 @@ class PasswordRecoveryAPI(Resource):
 
                 for password_reset in password_reset_list:
                     password_reset.active = False
-                    password_reset.update_to_db()
+                    try:
+                        password_reset.update_to_db()
+                    except Exception as exc:
+                        password_reset.rollback()
+                        raise exc 
 
                 new_password_reset = PasswordReset(
                     user_id=current_user.id,
@@ -780,7 +836,11 @@ class PasswordRecoveryAPI(Resource):
                     server.sendmail(config.SMTP_SENDER, current_user.email, msg.as_string())
                     # server.sendmail(config.SMTP_SENDER,'bounce@simulator.amazonses.com', msg.as_string())
                     server.close()
-                    new_password_reset.save_to_db()
+                    try:
+                        new_password_reset.save_to_db()
+                    except Exception as exc:
+                        new_password_reset.rollback()
+                        raise exc
                     LOG.debug("finished email sending")
                 elif config.SEND_EMAILS:
                     LOG.error("Mail not sent since there is not SMTP server configured.")
@@ -814,8 +874,11 @@ class ChangePasswordByRecoveryAPI(Resource):
 
         if not token_time_valid:
             password_reset.active = False
-            password_reset.update_to_db()
-
+            try:
+                password_reset.update_to_db()
+            except Exception:
+                password_reset.rollback()
+                LOG.error(f"Couldn\'t save the data. Making a rollback")
             return internal("Invalid token")
 
         try:
@@ -823,23 +886,39 @@ class ChangePasswordByRecoveryAPI(Resource):
             current_user.password = User.generate_hash(data["password"])
             current_user.active = True
             current_user.blocked = False
-            current_user.update_to_db()
+            try:
+                current_user.update_to_db()
+            except Exception as exc:
+                current_user.rollback()
+                raise exc
 
             login_attempts = LoginAttempts.find_by_user(current_user.id)
 
             if login_attempts:
                 login_attempts.attempts = 0
                 login_attempts.last_attempt = datetime.datetime.now().isoformat()
-                login_attempts.update_to_db()
+                try:
+                    login_attempts.update_to_db()
+                except Exception as exc:
+                    login_attempts.rollback()
+                    raise exc
 
             password_reset_list = PasswordReset.find_active_tokens_by_user_id(password_reset.user_id)
 
             for password_reset in password_reset_list:
                 password_reset.active = False
-                password_reset.update_to_db()
+                try:
+                    password_reset.update_to_db()
+                except Exception as exc:
+                    password_reset.rollback()
+                    raise exc
 
             password_reset.active = False
-            password_reset.update_to_db()
+            try:
+                password_reset.update_to_db()
+            except Exception as exc:
+                password_reset.rollback()
+                raise exc
 
             if config.SMTP_HOST and config.SEND_EMAILS:
                 LOG.debug('init email sending')
@@ -903,6 +982,7 @@ class ChangePasswordAPI(Resource):
 
             return jsonify({"message": "Password Changed Successfully"})
         except Exception as exc:
+            current_user.rollback()
             LOG.error("Something went wrong trying to change the password: {0}".format(exc))
 
             return internal("Something went wrong trying to change the password")
@@ -954,9 +1034,17 @@ class ChangeEmailRequestAPI(Resource):
 
             for item in new_request_list:
                 item.active = False
-                item.update_to_db()
+                try:
+                    item.update_to_db()
+                except Exception as exc:
+                    item.rollback()
+                    raise exc
 
-            new_request.save_to_db()
+            try:
+                new_request.save_to_db()
+            except Exception as exc:
+                new_request.rollback()
+                raise exc
 
             full_url = config.BRAND_URL + \
                        "change_email_request/" + str(encoded_token)
@@ -1009,17 +1097,28 @@ class ChangeEmailAPI(Resource):
 
         if not token_time_valid:
             change_email.active = False
-            change_email.update_to_db()
-
+            try:
+                change_email.update_to_db()
+            except Exception:
+                change_email.rollback()
+                LOG.error(f"Couldn\'t save email data. Making a rollback")
             return internal("Invalid token")
 
         try:
             current_user = User.find_by_id(change_email.user_id)
             current_user.email = change_email.new_email
-            current_user.update_to_db()
+            try:
+                current_user.update_to_db()
+            except Exception as exc:
+                current_user.rollback()
+                raise exc
 
             change_email.active = False
-            change_email.update_to_db()
+            try:
+                change_email.update_to_db()
+            except Exception as exc:
+                change_email.rollback()
+                raise exc
 
             return jsonify({"message": "E-mail Changed Successfully"})
         except Exception as exc:
@@ -1054,14 +1153,22 @@ class Login(Resource):
             if login_attempts:
                 login_attempts.attempts = 0
                 login_attempts.last_attempt = datetime.datetime.now().isoformat()
-                login_attempts.update_to_db()
+                try:
+                    login_attempts.update_to_db()
+                except Exception:
+                    login_attempts.rollback()
+                    LOG.error(f"Couldn\'t update the number of login attempts. Making a rollback")
             else:
                 login_attempts = LoginAttempts(
                     user_id=user.id,
                     attempts=0,
                     last_attempt=datetime.datetime.now().isoformat()
                 )
-                login_attempts.save_to_db()
+                try:
+                    login_attempts.save_to_db()
+                except Exception:
+                    login_attempts.rollback()
+                    LOG.error(f"Couldn\'t save the number of login attempts. Making a rollback")
 
             access_token = create_access_token(identity=user)
             refresh_token = create_refresh_token(identity=user)
@@ -1075,11 +1182,19 @@ class Login(Resource):
             if login_attempts:
                 login_attempts.attempts += 1
                 login_attempts.last_attempt = datetime.datetime.now().isoformat()
-                login_attempts.update_to_db()
+                try:
+                    login_attempts.update_to_db()
+                except Exception:
+                    login_attempts.rollback()
+                    LOG.error(f"Couldn\'t update the number of login attempts. Making a rollback")
 
                 if login_attempts.attempts >= 5:
                     user.blocked = True
-                    user.update_to_db()
+                    try:
+                        user.update_to_db()
+                    except Exception:
+                        user.rollback()
+                        LOG.error(f"Couldn\'t update user data. Making a rollback")
 
                     full_url = config.BRAND_URL + "recovery"
 
@@ -1115,7 +1230,12 @@ class Login(Resource):
                     attempts=1,
                     last_attempt=datetime.datetime.now().isoformat()
                 )
-                login_attempts.save_to_db()
+
+                try:
+                    login_attempts.save_to_db()
+                except Exception:
+                    login_attempts.rollback()
+                    LOG.error(f"Couldn\'t save the number of login attempts. Making a rollback")
 
             return make_response(jsonify({"error": "forbidden access"}), 403)
 
@@ -1289,7 +1409,12 @@ class Register(Resource):
                 deleted=False,
                 collectors=collectors
             )
-            user.save_to_db()
+            try:
+                user.save_to_db()
+            except Exception:
+                user.rollback()
+                LOG.error(f"Couldn\'t create the new User. Making a rollback")
+            
 
         elif len(list_user) > 0:
 
@@ -1365,7 +1490,11 @@ class Register(Resource):
             server.sendmail(config.SMTP_SENDER, user.email, msg.as_string())
             server.close()
             LOG.debug("finished email sending")
-            new_account_activation.save_to_db()
+            try:
+                new_account_activation.save_to_db()
+            except Exception:
+                new_account_activation.rollback()
+                LOG.error(f"Couldn\'t save the new account activation. Making a rollback")
 
             return {
                 "message": "An email was sent to the account provided"
@@ -1525,12 +1654,20 @@ class DataCollectorAPI(Resource):
             data_collector.data_collector_type_id = type_id
             data_collector.policy_id = policy_id
             data_collector.gateway_id = gateway_id
-            data_collector.update_to_db()
+            try:
+                data_collector.update_to_db()
+            except Exception as exc:
+                data_collector.rollback()
+                raise exc
 
             topics = MqttTopic.find_by_data_collector_id(data_collector_id)
 
             for topic in topics:
-                topic.delete_from_db()
+                try:
+                    topic.delete_from_db()
+                except Exception as exc:
+                    topic.rollback()
+                    raise exc   
 
             if data['topics']:
                 for topic in data['topics']:
@@ -1538,7 +1675,11 @@ class DataCollectorAPI(Resource):
                         name=topic,
                         data_collector_id=data_collector.id
                     )
-                    new_mqtt_topic.save_to_db()
+                    try:
+                        new_mqtt_topic.save_to_db()
+                    except Exception as exc:
+                        new_mqtt_topic.rollback()
+                        raise exc
 
             emit_data_collector_event('UPDATED', data_collector.to_json())
 
@@ -1612,8 +1753,16 @@ class DataCollectorAPI(Resource):
         topics = MqttTopic.find_by_data_collector_id(data_collector_id)
 
         for topic in topics:
-            topic.delete_from_db()
-        data_collector.delete_from_db()
+            try:
+                topic.delete_from_db()
+            except Exception:
+                topic.rollback()
+                LOG.error(f"Couldn\'t delete the topic with id {topic}. Making a rollback")
+        try:
+            data_collector.delete_from_db()
+        except Exception:
+            data_collector.rollback()
+            LOG.error("Couldn\'t delete the data collector. Making a rollback")
         emit_data_collector_event('DELETED', data_collector.to_json())
 
         # Create log event
@@ -1665,7 +1814,11 @@ class DataCollectorAPI(Resource):
 
         try:
             data_collector.status = status
-            data_collector.update_to_db()
+            try:
+                data_collector.update_to_db()
+            except Exception as exc:
+                data_collector.rollback()
+                raise exc
             response = data_collector.to_json()
 
             if status == DataCollectorStatus.DISCONNECTED:
@@ -1788,7 +1941,11 @@ class DataCollectorListAPI(Resource):
                 gateway_id=gateway_id,
                 status=DataCollectorStatus.DISCONNECTED
             )
-            new_data_collector.save_to_db()
+            try:
+                new_data_collector.save_to_db()
+            except Exception as exc:
+                new_data_collector.rollback()
+                raise exc
 
             if data['topics']:
                 for topic in data['topics']:
@@ -1796,7 +1953,11 @@ class DataCollectorListAPI(Resource):
                         name=topic,
                         data_collector_id=new_data_collector.id
                     )
-                    new_mqtt_topic.save_to_db()
+                    try:
+                        new_mqtt_topic.save_to_db()
+                    except Exception as exc:
+                        new_mqtt_topic.rollback()
+                        raise exc
             emit_data_collector_event('CREATED', new_data_collector.to_json())
 
             # Create log event
@@ -2014,9 +2175,12 @@ class DataCollectorTestAPI(Resource):
                         name=topic,
                         data_collector_id=new_data_collector.id
                     )
-                    # If we are not saving to db as stated above, we should
-                    # also not do this:
-                    # new_mqtt_topic.save_to_db()
+
+                    try:
+                        new_mqtt_topic.save_to_db()
+                    except Exception as exc:
+                        new_mqtt_topic.rollback()
+                        raise exc
 
             emit_data_collector_event('TEST', new_data_collector.to_json())
 
@@ -2733,13 +2897,21 @@ class SESNotifications(Resource):
 
                             if send_mail_attempts:
                                 send_mail_attempts.attempts = 0
-                                send_mail_attempts.update_to_db()
+                                try:
+                                    send_mail_attempts.update_to_db()
+                                except Exception:
+                                    send_mail_attempts.rollback()
+                                    LOG.error(f"Couldn\'t update the number of send mail attempts. Making a rollback")
                             else:
                                 send_mail_attempts = SendMailAttempts(
                                     user_id=user.id,
                                     attempts=0,
                                 )
-                                send_mail_attempts.save_to_db()
+                                try:
+                                    send_mail_attempts.save_to_db()
+                                except Exception:
+                                    send_mail_attempts.rollback()
+                                    LOG.error(f"Couldn\'t save the number of send mail attempts. Making a rollback")
                 elif message['notificationType'] == 'Bounce':  # mail was bounced
                     LOG.debug('bounce')
                     # handle bounce notifications: do things (count += 1)
@@ -2753,17 +2925,30 @@ class SESNotifications(Resource):
 
                             if send_mail_attempts:
                                 send_mail_attempts.attempts += 1
-                                send_mail_attempts.update_to_db()
+                                try:
+                                    send_mail_attempts.update_to_db()
+                                except Exception:
+                                    send_mail_attempts.rollback()
+                                    LOG.error(f"Couldn\'t update the number of send mail attempts. Making a rollback")
 
                                 if send_mail_attempts.attempts >= config.SMTP_MAX_SEND_MAIL_ATTEMPTS:
                                     user.blocked = True
-                                    user.update_to_db()
+                                    try:
+                                        user.update_to_db()
+                                    except Exception:
+                                        user.rollback()
+                                        LOG.error(f"Couldn\'t update user data. Making a rollback")
                             else:
                                 send_mail_attempts = SendMailAttempts(
                                     user_id=user.id,
                                     attempts=1,
                                 )
-                                send_mail_attempts.save_to_db()
+
+                                try:
+                                    send_mail_attempts.save_to_db()
+                                except Exception:
+                                    send_mail_attempts.rollback()
+                                    LOG.error(f"Couldn\'t save the number of send mail attempts. Making a rollback")
 
         return 200
 

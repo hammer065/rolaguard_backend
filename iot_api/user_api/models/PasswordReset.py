@@ -35,6 +35,9 @@ class PasswordReset(db.Model):
         db.session.delete(self)
         db.session.commit()
 
+    def rollback(self):
+        db.session.rollback()
+
     @classmethod
     def find_by_token(cls, token):
         return cls.query.filter_by(token=token, active=True).first()

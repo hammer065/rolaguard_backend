@@ -18,6 +18,9 @@ class MqttTopic(db.Model):
         db.session.delete(self)
         db.session.commit()
 
+    def rollback(self):
+        db.session.rollback()
+
     @classmethod
     def find_by_data_collector_id(cls, data_collector_id):
         return cls.query.filter_by(data_collector_id=data_collector_id).all()

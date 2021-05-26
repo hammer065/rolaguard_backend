@@ -174,6 +174,7 @@ api.add_resource(res.AssetListAPI, '/api/v1.0/assets/search')
 #endregion
 
 eventlet.monkey_patch()
+
 if __name__ == '__main__':
     socketio.run(app, port=5000)
     db.init_app(app)
