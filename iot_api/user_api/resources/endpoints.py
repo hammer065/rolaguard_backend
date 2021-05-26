@@ -7,12 +7,13 @@ import re
 import smtplib
 import socket
 import uuid
+import validators
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 import dateutil.parser as dp
 import requests
-from flask import jsonify, make_response, request, render_template
+from flask import jsonify, make_response, request, render_template, session
 from flask_jwt_extended import (create_access_token, create_refresh_token, jwt_optional, jwt_required, get_jwt_identity,
                                 get_raw_jwt,
                                 jwt_refresh_token_required)
@@ -54,6 +55,9 @@ LOG = iot_logging.getLogger(__name__)
 
 USE_RECAPTCHA = ("RECAPTCHA_SECRET_KEY" in os.environ) and (len(os.environ['RECAPTCHA_SECRET_KEY']) > 0)
 
+def empty_string_none(value):
+    return value != "" and value or None
+
 data_collector_parser = reqparse.RequestParser()
 data_collector_parser.add_argument("name", help="Missing name attribute", required=True)
 data_collector_parser.add_argument("description", help="Missing description attribute", required=False)
@@ -62,6 +66,9 @@ data_collector_parser.add_argument("port", help="Missing port attribute", requir
 data_collector_parser.add_argument("user", help="Missing user attribute", required=False)
 data_collector_parser.add_argument("password", help="Missing password attribute", required=False)
 data_collector_parser.add_argument("ssl", help="Missing ssl attribute", required=False)
+data_collector_parser.add_argument("ca_cert", help="Missing ca_cert attribute", required=False, type=empty_string_none)
+data_collector_parser.add_argument("client_cert", help="Missing cient_cert attribute", required=False, type=empty_string_none)
+data_collector_parser.add_argument("client_key", help="Missing client_key attribute", required=False, type=empty_string_none)
 data_collector_parser.add_argument("data_collector_type_id", help="Missing type attribute", required=True)
 data_collector_parser.add_argument("policy_id", help="Missing policy attribute", required=True)
 data_collector_parser.add_argument("gateway_id", help="Missing gateway_id attribute", required=False)
@@ -123,15 +130,23 @@ user_change_password_by_recovery_parser.add_argument("password", help="Missing p
 add_recipient_parser = reqparse.RequestParser()
 add_recipient_parser.add_argument("name", help="Missing name attribute.", required=True)
 
+ttn_credentials_parser = reqparse.RequestParser()
+ttn_credentials_parser.add_argument("user", dest="username", help="You have to enter username",
+                          required=True)
+ttn_credentials_parser.add_argument("password", help="You have to enter a password", required=True)
+
 
 # verify if specified username belongs to user with role 'Regular_User'
 def is_regular_user(user_id):
     role = UserRole.find_by_role_name(RoleTypes.Regular_User.value)
+
     if not role:
         return None
     role_id = role.id
+
     if not role_id:
         return None
+
     if UserToUserRole.find_by_user_id_and_user_role_id(user_id, role_id):
         return True
     else:
@@ -141,11 +156,14 @@ def is_regular_user(user_id):
 # verify if specified username belongs to user with role 'User_Admin'
 def is_admin_user(user_id):
     role = UserRole.find_by_role_name(RoleTypes.User_Admin.value)
+
     if not role:
         return None
     role_id = role.id
+
     if not role_id:
         return None
+
     if UserToUserRole.find_by_user_id_and_user_role_id(user_id, role_id):
         return True
     else:
@@ -155,13 +173,17 @@ def is_admin_user(user_id):
 # verify if specified username is system
 def is_system(user_id):
     role = UserRole.find_by_role_name(RoleTypes.System.value)
+
     if not role:
         return None
     role_id = role.id
+
     if not role_id:
         return None
+
     if not role_id:
         return None
+
     if UserToUserRole.find_by_user_id_and_user_role_id(user_id, role_id):
         return True
     else:
@@ -174,6 +196,7 @@ def validate_password(password):
     uppercase_error = re.search(r"[A-Z]", password) is None
     lowercase_error = re.search(r"[a-z]", password) is None
     symbol_error = re.search(r"[ !#$%&'()*+,-./:;<=>?@[\\\]^_`{|}~" + r'"]', password) is None
+
     return length_error or digit_error or uppercase_error or lowercase_error or symbol_error
 
 
@@ -202,6 +225,7 @@ class UserInfoAPI(Resource):
     def get(self, username):
 
         user = User.find_by_username(get_jwt_identity())
+
         if not user:
             return forbidden()
 
@@ -214,6 +238,7 @@ class UserInfoAPI(Resource):
             return internal("User {0} could not be found.".format(username.lower()))
 
         # restrict access to user admin, super admin and profile owner
+
         if not is_admin_user(user.id):
             if current_user.username != user.username:
                 return forbidden()
@@ -226,14 +251,17 @@ class UserInfoAPI(Resource):
     @jwt_required
     def put(self, username):
         user = User.find_by_username(get_jwt_identity())
+
         if not user:
             return forbidden()
 
         current_user = User.find_by_username(username)
+
         if not current_user:
             return internal("User {0} could not be found.".format(username.lower()))
-        
+
         # restrict user update to user admin, super admin and profile owner
+
         if not is_admin_user(user.id) and current_user.username != user.username:
                 return forbidden()
 
@@ -246,6 +274,7 @@ class UserInfoAPI(Resource):
         data = user_update_parser.parse_args()
 
         phone_without_space = ""
+
         if data["phone"]:
             phone_without_space = data["phone"].strip()
 
@@ -259,30 +288,36 @@ class UserInfoAPI(Resource):
 
         if len(phone_without_space) > 0 and (not phone_without_space.count("+") == 1 or not phone_without_space.count(
                 "-") == 1 or not phone_without_space_and_signs.isdigit()):
+
             return internal("Phone {0} is not valid".format(phone_without_space))
 
         user_roles = data["user_roles"]
 
         # updating user roles only allowed to admin user.
+
         if user_roles and not is_admin_user(user.id):
             return forbidden()
-        
+
         user_roles_int = list(map(lambda x: int(x), user_roles))  # roles to be added
 
         if RoleTypes.System.value in user_roles_int:
             LOG.error("Can not include one of the roles")
+
             return forbidden()
 
         try:
-            
+
             current_user_roles = UserToUserRole.find_all_user_role_by_user_id(current_user.id)
             current_user_roles_id = list(map(lambda x: x.user_role_id, current_user_roles))
             account_activation_list = AccountActivation.find_active_tokens_by_user_id(current_user.id)
+
             if account_activation_list:
                 account_activation = account_activation_list[0]
             elif not current_user.active:  # trying to modify not active user with expired token
                 # todo: resend activation mail and allow the admin to modify current user
+
                 return forbidden()
+
             if not current_user_roles:
                 # get current roles of not active user created after delay, with not expired token
                 current_user_roles = list(account_activation.user_roles_id)
@@ -290,15 +325,19 @@ class UserInfoAPI(Resource):
                 current_user_roles = [int(x) for x in current_user_roles]
 
             # delete obsolete roles
+
             for current_user_role in current_user_roles:
                 # current_user_role can be a UserToUserRole object or an int list
+
                 if isinstance(current_user_role, UserToUserRole):
                     user_role_id = current_user_role.user_role_id
                 else:
                     user_role_id = current_user_role
                     current_user_roles_id.append(user_role_id)
+
                 if current_user.id == user.id and 1 in user_roles_int and user_role_id == 2:  # cant auto-downgrade role
                     return forbidden()
+
                 if user_role_id not in user_roles_int:
                     if current_user.active or isinstance(current_user_role, UserToUserRole):
                         # deleting obsolete role from active user or not active created before delay
@@ -309,6 +348,7 @@ class UserInfoAPI(Resource):
                             raise exc                 
 
             # add new added roles to user
+
             for role_to_add in user_roles_int:
                 if role_to_add not in current_user_roles_id:
                     if UserRole.find_by_id(role_to_add):
@@ -339,7 +379,7 @@ class UserInfoAPI(Resource):
                 collectors = DataCollector.find_with( collector_ids, user.organization_id)
             else:
                 collectors = []
-            
+
 
             # update data in current user after checking that it has an active token or it's an active user,
             # and that it's not trying to autodowngrade role
@@ -355,26 +395,31 @@ class UserInfoAPI(Resource):
             return jsonify({"message": "User {0} updated successfully".format(current_user.username)})
         except Exception as exc:
             LOG.error("Something went wrong trying to update the User {0}: {1}".format(current_user.username, exc))
+
             return internal("Something went wrong trying to update the User {0}.".format(current_user.username))
 
     @jwt_required
     def delete(self, username):
         # WIP: deassociate rows in several tables when user is deleted
         user = User.find_by_username(get_jwt_identity())
+
         if not user:
             return forbidden()
-        
+
         # restrict user deletion to user admin and super admin
+
         if not is_admin_user(user.id):
             return forbidden()
-        
+
         current_user = User.find_by_username(username)
-        
+
         # block user from deleting its own account
+
         if current_user.username == user.username:
             return forbidden()
 
         # Make sure it's trying to delete a user of its organization
+
         if user.organization_id != current_user.organization_id:
             return forbidden()
 
@@ -384,11 +429,13 @@ class UserInfoAPI(Resource):
         try:
             current_user.deleted = True
             current_user.update_to_db()
+
             return jsonify({"message": "User {0} was deleted successfully.".format(username.lower())})
 
         except Exception as exc:
             current_user.rollback()
             LOG.error("Error trying to delete User: {0}".format(exc))
+
             return internal("Something went wrong")
 
 
@@ -397,6 +444,7 @@ class ResendActivationAPI(Resource):
     @jwt_required
     def put(self):
         user = User.find_by_username(get_jwt_identity())
+
         if not user:
             return forbidden()
         data = user_resend_activation_parser.parse_args()
@@ -468,10 +516,12 @@ class ResendActivationAPI(Resource):
                 return jsonify({"message": "Activation E-mail Resent Successfully"})
             elif config.SEND_EMAILS:
                 LOG.error("Mail not sent since there is not SMTP server configured.")
+
                 return internal("Something went wrong trying to resend activation")
 
         except Exception as exc:
             LOG.error("Something went wrong trying to resend activation: {0}".format(exc))
+
             return internal("Something went wrong trying to resend activation")
 
 
@@ -482,10 +532,12 @@ class UserListAPI(Resource):
         user = User.find_by_username(get_jwt_identity())
         page = request.args.get('page', default=1, type=int)
         size = request.args.get('size', default=20, type=int)
+
         if not user:
             return forbidden()
 
         # for users other than user admin, super admin and alarm admin return only user's own info to maintain privacy
+
         if not is_admin_user(user.id):
             return {"users": [user.to_json()]}
         else:
@@ -493,9 +545,11 @@ class UserListAPI(Resource):
                 result = User.find(user.organization_id, page, size)
                 users = [user.to_json() for user in result.items]
                 headers = {'total-pages': result.pages, 'total-items': result.total}
+
                 return {"users": users}, 200, headers
             except Exception as exc:
                 LOG.error("Something went wrong to get the list of users {0}.".format(exc))
+
                 return internal("Something went wrong to get the list of users")
 
 
@@ -504,6 +558,7 @@ class UserAPI(Resource):
     @jwt_required
     def get(self):
         user = User.find_by_username(get_jwt_identity())
+
         if not user:
             return forbidden()
 
@@ -525,9 +580,10 @@ class CreatePasswordAPI(Resource):
             # token date validation
             token_time_valid = account_activation.creation_date > datetime.datetime.now(
                 datetime.timezone.utc) - datetime.timedelta(hours=24)
+
             if not token_time_valid and not current_user.active:
                 # If the token has expired, resend the activation mail with a new token
-                
+
                 token = hashlib.sha256((current_user.email + str(datetime.datetime.now())).encode())
                 encoded_token = token.hexdigest()
 
@@ -543,7 +599,7 @@ class CreatePasswordAPI(Resource):
                     token=encoded_token,
                     creation_date=datetime.datetime.now().isoformat(),
                     active=True,
-                    user_roles_id=account_activation.user_roles_id    
+                    user_roles_id=account_activation.user_roles_id
                 )
                 try:
                     new_account_activation.save_to_db()
@@ -579,10 +635,12 @@ class CreatePasswordAPI(Resource):
 
                 else:
                     LOG.error("Activation mail not re-sent because there is not SMTP server configured.")
+
                     return internal("Something went wrong trying to re-send activation mail")
 
             # password validation
             password_failed = validate_password(data["password"])
+
             if password_failed:
                 return internal("Password is not valid")
 
@@ -596,6 +654,7 @@ class CreatePasswordAPI(Resource):
 
             # Deactivate active tokens
             account_activation_list = AccountActivation.find_active_tokens_by_user_id(account_activation.user_id)
+
             for account_activation in account_activation_list:
                 account_activation.active = False
                 try:
@@ -606,6 +665,7 @@ class CreatePasswordAPI(Resource):
 
             # create organization
             organization_id = current_user.organization_id
+
             if organization_id is None:
                 # print("creating organization")
                 username_without_space = current_user.username.strip()
@@ -626,6 +686,7 @@ class CreatePasswordAPI(Resource):
                     raise exc 
 
                 info_email = os.environ['INFO_EMAIL'] if 'INFO_EMAIL' in os.environ else None
+
                 if info_email:
                     msg = MIMEMultipart('alternative')
                     msg['Subject'] = "New Organization"
@@ -650,6 +711,7 @@ class CreatePasswordAPI(Resource):
                     server.close()
             # create user role
             user_roles = None
+
             if account_activation.user_roles_id:
                 user_roles = list(account_activation.user_roles_id)
                 user_roles = list(filter(lambda x: x != ',', user_roles))
@@ -661,6 +723,7 @@ class CreatePasswordAPI(Resource):
             if user_roles:
                 for role_id in user_roles:
                     role = UserRole.find_by_id(role_id)
+
                     if role and role.role_name != "System" and role_id not in current_user_roles_id:
                         new_user_to_user_role = UserToUserRole(
                             user_id=current_user.id,
@@ -676,27 +739,33 @@ class CreatePasswordAPI(Resource):
 
             # Create preferences notifications
             np = NotificationPreferences.find_one(current_user.id)
+
             if not np:
                 NotificationPreferences(user_id=current_user.id, sms=False, push=False, email=False).save()
 
             nas = NotificationAlertSettings.find_one(current_user.id)
+
             if not nas:
                 NotificationAlertSettings(user_id=current_user.id, high=True, medium=True, low=True, info=True).save()
 
             dcs = DataCollector.find_by_user(current_user).items
+
             for dc in dcs:
                 ndcs = NotificationDataCollectorSettings.find_one(current_user.id, dc.id)
+
                 if not ndcs:
                     NotificationDataCollectorSettings(data_collector_id=dc.id, user_id=current_user.id,
                                                       enabled=True).save()
 
             nd = NotificationData.find_one(current_user.id)
+
             if not nd:
                 NotificationData(user_id=current_user.id, last_read=datetime.datetime.now()).save()
 
             return jsonify({"message": "Password Changed Successfully"})
         except Exception as exc:
             LOG.error("Something went wrong trying to change the password: {0}".format(exc))
+
             return internal("Something went wrong trying to change the password")
 
 class PasswordRecoveryAPI(Resource):
@@ -712,8 +781,10 @@ class PasswordRecoveryAPI(Resource):
 
         if USE_RECAPTCHA:
             recaptcha_valid= validate_recaptcha_token(data['recaptcha_token'])
+
             if not recaptcha_valid:
                 LOG.debug('Got bad recaptcha token while triying to recover password')
+
                 return internal("Got bad recaptcha token while triying to recover password")
         else:
             LOG.warning("Recaptcha was not validated because the credentials were not defined.")
@@ -773,11 +844,13 @@ class PasswordRecoveryAPI(Resource):
                     LOG.debug("finished email sending")
                 elif config.SEND_EMAILS:
                     LOG.error("Mail not sent since there is not SMTP server configured.")
+
                     return internal("Something went wrong trying to resend Password Recover")
 
             except Exception as exc:
                 LOG.error(
                     "Something went wrong with Password Recovery: {0}".format(exc))
+
                 return internal("Something went wrong with Password Recovery")
 
 
@@ -791,12 +864,14 @@ class ChangePasswordByRecoveryAPI(Resource):
 
         # password validation
         password_failed = validate_password(data["password"])
+
         if password_failed:
             return internal("Password {0} is not valid".format(data["password"]))
 
         # date validation
         token_time_valid = password_reset.creation_date > datetime.datetime.now(
             datetime.timezone.utc) - datetime.timedelta(hours=24)
+
         if not token_time_valid:
             password_reset.active = False
             try:
@@ -867,14 +942,17 @@ class ChangePasswordByRecoveryAPI(Resource):
                 server.sendmail(config.SMTP_SENDER, current_user.email, msg.as_string())
                 server.close()
                 LOG.debug("finished email sending")
+
                 return jsonify({"message": "Password Changed Successfully"})
             elif config.SEND_EMAILS:
                 LOG.error("Mail not sent since there is not SMTP server configured.")
+
                 return internal("Something went wrong trying to resend activation")
 
         except Exception as exc:
             LOG.error(
                 "Something went wrong trying to change the password: {0}".format(exc))
+
             return internal("Something went wrong trying to change the password")
 
 
@@ -883,6 +961,7 @@ class ChangePasswordAPI(Resource):
     @jwt_required
     def put(self):
         current_user = User.find_by_username(get_jwt_identity())
+
         if not current_user:
             return internal("User {0} could not be found.".format(get_jwt_identity()))
 
@@ -890,12 +969,13 @@ class ChangePasswordAPI(Resource):
 
         if not User.verify_hash(data["current_password"], current_user.password):
             return internal("Current password is wrong")
-        
+
         # password validation
         password_failed = validate_password(data["password"]) #at this point, both passwords are the same
+
         if password_failed:
-            return internal("Password {0} is not valid".format(data["password"])) 
-        
+            return internal("Password {0} is not valid".format(data["password"]))
+
         try:
             current_user.password = User.generate_hash(data["password"])
             current_user.update_to_db()
@@ -904,6 +984,7 @@ class ChangePasswordAPI(Resource):
         except Exception as exc:
             current_user.rollback()
             LOG.error("Something went wrong trying to change the password: {0}".format(exc))
+
             return internal("Something went wrong trying to change the password")
 
 class ChangeEmailRequestAPI(Resource):
@@ -911,6 +992,7 @@ class ChangeEmailRequestAPI(Resource):
     @jwt_required
     def post(self):
         current_user = User.find_by_username(get_jwt_identity())
+
         if not current_user:
             return internal("User {0} could not be found.".format(get_jwt_identity()))
 
@@ -989,25 +1071,30 @@ class ChangeEmailRequestAPI(Resource):
                 server.sendmail(config.SMTP_SENDER, current_user.email, msg.as_string())
                 server.close()
                 LOG.debug("finished email sending")
+
                 return jsonify({"message": "Email Request Sent Successfully"})
             elif config.SEND_EMAILS:
                 LOG.error("Mail not sent since there is not SMTP server configured.")
+
                 return internal("Something went wrong trying to resend activation")
 
         except Exception as exc:
             LOG.error("Something went wrong trying to change the email: {0}".format(exc))
+
             return internal("Something went wrong trying to change the email")
 
 
 class ChangeEmailAPI(Resource):
     def put(self, token):
         change_email = ChangeEmailRequests.find_by_token(token)
+
         if not change_email:
             return internal("Invalid token")
 
         # date validation
         token_time_valid = change_email.creation_date > datetime.datetime.now(
             datetime.timezone.utc) - datetime.timedelta(hours=24)
+
         if not token_time_valid:
             change_email.active = False
             try:
@@ -1037,6 +1124,7 @@ class ChangeEmailAPI(Resource):
         except Exception as exc:
             LOG.error(
                 "Something went wrong trying to change the e-mail: {0}".format(exc))
+
             return internal("Something went wrong trying to change the password")
 
 
@@ -1048,6 +1136,7 @@ class Login(Resource):
 
         if user is None:
             user_list = User.find_by_email(data["username_or_email"])
+
             if user_list:
                 user = user_list[0]
 
@@ -1133,6 +1222,7 @@ class Login(Resource):
                         LOG.debug("finished email sending")
                     elif config.SEND_EMAILS:
                         LOG.error("Mail not sent since there is not SMTP server configured.")
+
                         return internal("Something went wrong trying to resend activation")
             else:
                 login_attempts = LoginAttempts(
@@ -1140,12 +1230,13 @@ class Login(Resource):
                     attempts=1,
                     last_attempt=datetime.datetime.now().isoformat()
                 )
+
                 try:
                     login_attempts.save_to_db()
                 except Exception:
                     login_attempts.rollback()
                     LOG.error(f"Couldn\'t save the number of login attempts. Making a rollback")
-            
+
             return make_response(jsonify({"error": "forbidden access"}), 403)
 
 
@@ -1156,10 +1247,12 @@ class UserLogoutAccess(Resource):
         try:
             revoked_token = RevokedTokenModel(jti=jti)
             revoked_token.add()
+
             return jsonify({"message": "Access token has been revoked"})
 
         except Exception as exc:
             LOG.error("Error trying to save an Token: {0}".format(exc))
+
             return internal("Something went wrong with Access Token")
 
 
@@ -1170,9 +1263,11 @@ class UserLogoutRefresh(Resource):
         try:
             revoked_token = RevokedTokenModel(jti=jti)
             revoked_token.add()
+
             return {"message": "Refresh token has been revoked"}
         except Exception as exc:
             LOG.error("Error trying to save an Token: {0}".format(exc))
+
             return internal("Something went wrong with Access Token")
 
 def validate_recaptcha_token(recaptcha_response):
@@ -1183,7 +1278,7 @@ def validate_recaptcha_token(recaptcha_response):
             'secret': recaptcha_sitekey,
             'response': recaptcha_response,
             # 'remote_ip': remote_ip,
-            })      
+            })
 
     data = urlopen(uri_recaptcha, params.encode('utf-8')).read()
     result = json.loads(data)
@@ -1191,9 +1286,11 @@ def validate_recaptcha_token(recaptcha_response):
 
     if success == True:
         LOG.debug('reCaptcha passed')
+
         return success
     else:
         LOG.debug('reCaptcha failed')
+
         return False
 
 class Register(Resource):
@@ -1206,14 +1303,17 @@ class Register(Resource):
         data = register_parser.parse_args()
 
         # If it's an internal request, check it's coming from an admin. Otherwise, validate recaptcha
+
         if admin_user_identity is not None:
             if not is_admin_user(User.find_by_username(get_jwt_identity()).id):
                 raise Error.Forbidden()
         elif USE_RECAPTCHA:
             recaptcha_token = data['recaptcha_token']
+
             if not recaptcha_token:
                 raise Error.InvalidUsage('Missing recaptcha token in request')
             recaptcha_valid = validate_recaptcha_token(recaptcha_token)
+
             if not recaptcha_valid:
                 raise Error.InvalidUsage('Invalid recaptcha token')
         else:
@@ -1227,8 +1327,10 @@ class Register(Resource):
         else: # Creating new user into an existing organization
             if not "user_roles" in data or data["user_roles"] is None or len(data["user_roles"]) == 0:
                 raise Error.InvalidUsage("Missing user_roles attribute.")
+
             if len(data["user_roles"]) > 1:
                 raise Error.InvalidUsage("Cannot assign more than one role")
+
             if int(data["user_roles"][0]) not in [1, 2]:
                 raise Error.InvalidUsage("Cannot assign this user role")
 
@@ -1244,6 +1346,7 @@ class Register(Resource):
             raise Error.InvalidUsage("Email {0} is not valid".format(email_without_space))
 
         is_valid = validate_email(email_without_space)
+
         if not is_valid:
             raise Error.InvalidUsage("Email {0} is not valid".format(email_without_space))
 
@@ -1256,6 +1359,7 @@ class Register(Resource):
         if User.find_by_username(username_without_space):
             raise Error.InvalidUsage("User {0} already exists".format(username_without_space))
         phone_without_space = None
+
         if data["phone"]:
             phone_without_space = data["phone"].strip()  # delete whitespaces in phone (leading and trailing)
 
@@ -1266,6 +1370,7 @@ class Register(Resource):
 
             phone_without_prefix = ""
             phone_prefix = ""
+
             if len(phone_without_space.split("-"))>1:
                 phone_without_prefix = phone_without_space.split("-")[1]
                 phone_prefix = phone_without_space.split("-")[0]
@@ -1282,11 +1387,13 @@ class Register(Resource):
                     phone_without_space.find("+") != 0 or
                     len(phone_without_space) > 30):
                 raise Error.InvalidUsage("Phone {0} is not valid".format(phone_without_space))
-        
+
         list_user = User.find_by_email(email_without_space)
+
         if len(list_user) == 0:
-            
+
             collectors = []
+
             if "data_collectors" in data and data["data_collectors"] is not None and len(data["data_collectors"]) > 0:
                 collector_id_strings = data["data_collectors"]
                 collector_ids = list(map(lambda x: int(x), collector_id_strings))
@@ -1310,12 +1417,13 @@ class Register(Resource):
             
 
         elif len(list_user) > 0:
-            
+
             user= list_user[0]
             # If user exists and is active, then send a recovery mail
+
             if user.active:
                 if config.SMTP_HOST and config.SEND_EMAILS:
-                    
+
                     full_url = config.BRAND_URL + "recovery/"
 
                     LOG.debug('init email sending')
@@ -1346,8 +1454,8 @@ class Register(Resource):
                 elif config.SEND_EMAILS:
                     raise Error.Internal("Something went wrong trying to send mail: " + \
                         "Existing account mail not sent because there is no SMTP server configured.")
-            
-        # If user didn't exist or existed but wasn't activated, then send  an activation mail 
+
+        # If user didn't exist or existed but wasn't activated, then send  an activation mail
         token = hashlib.sha256((user.email + str(datetime.datetime.now())).encode())
         encoded_token = token.hexdigest()
 
@@ -1395,7 +1503,7 @@ class Register(Resource):
             raise Error.InvalidUsage("Something went wrong trying to send activation: " + \
                 "Activation mail not sent because there is no SMTP server configured.")
 
-    
+
 
 class TokenRefresh(Resource):
 
@@ -1404,6 +1512,7 @@ class TokenRefresh(Resource):
         current_user_username = get_jwt_identity()
         current_user = User.find_by_username(current_user_username)
         access_token = create_access_token(identity=current_user)
+
         return jsonify({"access_token": access_token})
 
 
@@ -1412,6 +1521,7 @@ class UserCount(Resource):
     @jwt_required
     def get(self):
         user = User.find_by_username(get_jwt_identity())
+
         if not user:
             return forbidden()
 
@@ -1427,13 +1537,17 @@ class UserRoleListAPI(Resource):
     @jwt_required
     def get(self):
         user = User.find_by_username(get_jwt_identity())
+
         if not user:
             return forbidden()
+
         if not is_admin_user(user.id):
             user_roles = UserToUserRole.find_all_user_role_by_user_id(user.id)
             return_list = []
+
             for user_role in user_roles:
                 return_list.append(UserRole.find_by_id(user_role.user_role_id).to_json())
+
             return {"user_roles": return_list}
 
         try:
@@ -1443,14 +1557,18 @@ class UserRoleListAPI(Resource):
                 limited_user_roles_list = []
                 user_roles = UserRole.return_all(True)
                 user_roles_list = user_roles["user_roles"]
+
                 for user_role in user_roles_list:
                     user_role_id = user_role["id"]
+
                     if not user_role_id == UserRole.find_by_role_name(RoleTypes.User_Admin.value).id:
                         limited_user_roles_list.append(user_role)
+
                 return {"user_roles": limited_user_roles_list}
 
         except Exception as exc:
             LOG.error("Error trying to retrieve UserRoles: {0}".format(exc))
+
             return internal("Error trying to retrieve the UserRoles")
 
 
@@ -1459,11 +1577,14 @@ class DataCollectorAPI(Resource):
     @jwt_required
     def put(self, data_collector_id):
         user = User.find_by_username(get_jwt_identity())
+
         if not user or not is_admin_user(user.id):
             return forbidden()
         data_collector = DataCollector.find_by_id(data_collector_id)
+
         if not data_collector:
             return not_found()
+
         if user.organization_id != data_collector.organization_id:
             return forbidden()
 
@@ -1472,6 +1593,7 @@ class DataCollectorAPI(Resource):
         gateway_id = data.gateway_id
         type_id = data.data_collector_type_id
         type = DataCollectorType.find_one(type_id)
+
         if not type:
             return bad_request('Invalid data_collector_type_id')
 
@@ -1488,7 +1610,8 @@ class DataCollectorAPI(Resource):
             try:
                 socket.inet_aton(data.ip)
             except socket.error:
-                return bad_request('IP invalid')
+                if not validators.domain(data.ip):
+                    return bad_request('IP invalid')
 
         if len(data.description) > 1000:
             return bad_request('Description field too long. Max is 1000 characters.')
@@ -1498,14 +1621,21 @@ class DataCollectorAPI(Resource):
 
         policy_id = data.policy_id
         policy = Policy.find_one(policy_id)
+
         if policy.organization_id is not None and policy.organization_id != user.organization_id:
             return bad_request('Not allowed policy.')
 
         changed_policy = False
+
         if data_collector.policy_id != policy_id:
             changed_policy = True
 
+        data.ca_cert = data.ca_cert != "" and data.ca_cert or None
+        data.client_cert = data.client_cert != "" and data.client_cert or None
+        data.client_key = data.client_key != "" and data.client_key or None
+
         cryptedPassword = None
+
         if data.password:
             uncryptedPassword = bytes(data.password, 'utf-8')
             cryptedPassword = cipher_suite.encrypt(uncryptedPassword).decode('utf8')
@@ -1517,6 +1647,9 @@ class DataCollectorAPI(Resource):
             data_collector.port = data.port,
             data_collector.user = data.user,
             data_collector.ssl = data.ssl == 'True'
+            data_collector.ca_cert = data.ca_cert
+            data_collector.client_cert = data.client_cert
+            data_collector.client_key = data.client_key
             data_collector.password = cryptedPassword
             data_collector.data_collector_type_id = type_id
             data_collector.policy_id = policy_id
@@ -1528,6 +1661,7 @@ class DataCollectorAPI(Resource):
                 raise exc
 
             topics = MqttTopic.find_by_data_collector_id(data_collector_id)
+
             for topic in topics:
                 try:
                     topic.delete_from_db()
@@ -1548,6 +1682,7 @@ class DataCollectorAPI(Resource):
                         raise exc
 
             emit_data_collector_event('UPDATED', data_collector.to_json())
+
             if changed_policy:
                 emit_policy_event('UPDATED', {'id': policy_id})
 
@@ -1572,16 +1707,20 @@ class DataCollectorAPI(Resource):
 
         except Exception as exc:
             LOG.error("Something went wrong trying to update the Data Collector: {0}".format(exc))
+
             return internal("Something went wrong trying to update the Data Collector: {0}".format(exc))
 
     @jwt_required
     def get(self, data_collector_id):
         user = User.find_by_username(get_jwt_identity())
+
         if not user or not is_regular_user(user.id) and not is_admin_user(user.id):
             return forbidden()
         data_collector = DataCollector.find_by_id(data_collector_id)
+
         if not data_collector:
             return not_found()
+
         if user.organization_id != data_collector.organization_id:
             return forbidden()
 
@@ -1589,6 +1728,7 @@ class DataCollectorAPI(Resource):
         result = Packet.find_max_by_organization_id(data_collector.organization_id, min_date)
         result = list(filter(lambda item: item.data_collector_id == data_collector.id, result))
         max_date = None
+
         if len(result) > 0:
             max_date = result[0].date
         response = data_collector.to_json()
@@ -1599,15 +1739,19 @@ class DataCollectorAPI(Resource):
     @jwt_required
     def delete(self, data_collector_id):
         user = User.find_by_username(get_jwt_identity())
+
         if not user or not is_admin_user(user.id):
             return forbidden()
         data_collector = DataCollector.find_by_id(data_collector_id)
+
         if not data_collector:
             return not_found()
+
         if user.organization_id != data_collector.organization_id:
             return forbidden()
 
         topics = MqttTopic.find_by_data_collector_id(data_collector_id)
+
         for topic in topics:
             try:
                 topic.delete_from_db()
@@ -1640,18 +1784,23 @@ class DataCollectorAPI(Resource):
     @jwt_required
     def patch(self, data_collector_id):
         user = User.find_by_username(get_jwt_identity())
+
         if not user or not is_admin_user(user.id):
             return forbidden()
         data_collector = DataCollector.find_by_id(data_collector_id)
+
         if not data_collector:
             return not_found()
+
         if user.organization_id != data_collector.organization_id:
             return forbidden()
 
         body = json.loads(request.data)
         status = body.get('status')
+
         if status not in ['DISABLED', 'ENABLED']:
             return [{'code': 'INVALID_STATUS', 'message': 'Invalid status'}], 400
+
         if status == 'DISABLED':
             if data_collector.status == DataCollectorStatus.CONNECTED or data_collector.status == DataCollectorStatus.DISCONNECTED:
                 status = DataCollectorStatus.DISABLED
@@ -1671,6 +1820,7 @@ class DataCollectorAPI(Resource):
                 data_collector.rollback()
                 raise exc
             response = data_collector.to_json()
+
             if status == DataCollectorStatus.DISCONNECTED:
                 emit_data_collector_event('ENABLED', response)
                 parameters = {}
@@ -1693,9 +1843,11 @@ class DataCollectorAPI(Resource):
                     user_id=user.id
                 )
                 log_event.save()
+
             return response, 200
         except Exception as exc:
             LOG.error('Something went wrong trying to update data collector: {0}'.format(exc))
+
             return None, 500
 
 
@@ -1716,6 +1868,7 @@ class DataCollectorListAPI(Resource):
         """
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id):
             return forbidden()
 
@@ -1724,10 +1877,12 @@ class DataCollectorListAPI(Resource):
         gateway_id = data.gateway_id
 
         type_id = data.data_collector_type_id
+
         if not type_id:
             return bad_request('Expecting data_collector_type_id')
 
         type = DataCollectorType.find_one(type_id)
+
         if not type:
             return bad_request('Invalid data_collector_type_id')
 
@@ -1744,7 +1899,8 @@ class DataCollectorListAPI(Resource):
             try:
                 socket.inet_aton(data.ip)
             except socket.error:
-                return bad_request('IP invalid')
+                if not validators.domain(data.ip):
+                    return bad_request('IP invalid')
 
         if len(data.description) > 1000:
             return bad_request('Description field too long. Max is 1000 characters.')
@@ -1754,10 +1910,12 @@ class DataCollectorListAPI(Resource):
 
         policy_id = data.policy_id
         policy = Policy.find_one(policy_id)
+
         if policy.organization_id is not None and policy.organization_id != user.organization_id:
             return bad_request('Not allowed policy.')
 
         cryptedPassword = None
+
         if data.password:
             uncryptedPassword = bytes(data.password, 'utf-8')
             cryptedPassword = cipher_suite.encrypt(uncryptedPassword).decode('utf8')
@@ -1776,6 +1934,9 @@ class DataCollectorListAPI(Resource):
                 ssl=data.ssl == 'True',
                 policy_id=policy_id,
                 organization_id=organization_id,
+                ca_cert=data.ca_cert,
+                client_cert=data.client_cert,
+                client_key=data.client_key,
                 data_collector_type_id=type_id,
                 gateway_id=gateway_id,
                 status=DataCollectorStatus.DISCONNECTED
@@ -1820,6 +1981,7 @@ class DataCollectorListAPI(Resource):
             # Create preference item for user notifications
             users = User.find_all_user_by_organization_id(organization_id)
             # print(users)
+
             for user in users:
                 NotificationDataCollectorSettings(
                     enabled=True,
@@ -1831,6 +1993,7 @@ class DataCollectorListAPI(Resource):
 
         except Exception as exc:
             LOG.error("Something went wrong trying to add the Data Collector: {0}".format(exc))
+
             return internal("Something went wrong trying to add the Data Collector: {0}".format(exc))
 
     @jwt_required
@@ -1863,19 +2026,23 @@ class DataCollectorListAPI(Resource):
                 data_collectors = result.items
                 headers = {'total-pages': result.pages, 'total-items': result.total}
                 response = []
+
                 for dc in data_collectors:
                     parsed_dc = dc.to_json_for_list()
                     found_counts = list(filter(lambda item: item.id == dc.id, counts))
+
                     if len(found_counts) > 0:
                         parsed_dc['count'] = found_counts[0].count
                     else:
                         parsed_dc['count'] = 0
                     response.append(parsed_dc)
+
                 return {"data_collectors": response}, 200, headers
             else:
                 result = DataCollector.find_by_user(user, page, size)
                 data_collector_list = result.items
                 headers = {'total-pages': result.pages, 'total-items': result.total}
+
                 if is_user_system:
                     return {"data_collectors": list(
                         map(lambda data_collector: data_collector.to_json_for_system(), data_collector_list))}, 200, headers
@@ -1887,6 +2054,7 @@ class DataCollectorListAPI(Resource):
             _, exc_obj, exc_tb = sys.exc_info()
             LOG.debug("Exception: {} - {}".format(exc_obj, exc_tb.tb_lineno))
             LOG.error("Something went wrong trying to get the Data Collector list: {0}".format(exc))
+
             return internal("Something went wrong trying to get the Data Collector list: {0}".format(exc))
 
 
@@ -1896,20 +2064,25 @@ class DataCollectorTestAPI(Resource):
     def get(self):
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id):
             return forbidden()
 
         data_collector_id = request.args.get('data_collector_id')
+
         if data_collector_id:
             try:
                 key = 'TestResponse-' + data_collector_id
                 event = GlobalData.find_by_key(key)
+
                 if event:
                     data = json.loads(event.value)
                     data['haveResponse'] = True
+
                     return jsonify(data)
             except TypeError as e:
                 LOG.error(f"Error: {e}")
+
         return jsonify({"haveResponse":False, "type":"NOTREADY", "message": "No response from connection test yet"})
 
 
@@ -1918,6 +2091,7 @@ class DataCollectorTestAPI(Resource):
         LOG.info('Testing connection to new collector')
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id):
             return forbidden()
 
@@ -1926,10 +2100,12 @@ class DataCollectorTestAPI(Resource):
         gateway_id = data.gateway_id
         # data verification
         type_id = data.data_collector_type_id
+
         if not type_id:
             return bad_request('Expecting data_collector_type_id')
 
         type = DataCollectorType.find_one(type_id)
+
         if not type:
             return bad_request('Invalid data_collector_type_id')
 
@@ -1946,7 +2122,8 @@ class DataCollectorTestAPI(Resource):
             try:
                 socket.inet_aton(data.ip)
             except socket.error:
-                return bad_request('IP invalid')
+                if not validators.domain(data.ip):
+                    return bad_request('IP invalid')
 
         if len(data.description) > 1000:
             return bad_request('Description field too long. Max is 1000 characters.')
@@ -1956,10 +2133,12 @@ class DataCollectorTestAPI(Resource):
 
         policy_id = data.policy_id
         policy = Policy.find_one(policy_id)
+
         if policy.organization_id is not None and policy.organization_id != user.organization_id:
             return bad_request('Not allowed policy.')
 
         cryptedPassword = None
+
         if data.password:
             uncryptedPassword = bytes(data.password, 'utf-8')
             cryptedPassword = cipher_suite.encrypt(uncryptedPassword).decode('utf8')
@@ -1976,6 +2155,9 @@ class DataCollectorTestAPI(Resource):
                 created_at=datetime.datetime.now(),
                 port=data.port,
                 user=data.user,
+                ca_cert=data.ca_cert,
+                client_cert=data.client_cert,
+                client_key=data.client_key,
                 password=cryptedPassword,
                 ssl=data.ssl == 'True',
                 policy_id=policy_id,
@@ -1984,14 +2166,16 @@ class DataCollectorTestAPI(Resource):
                 gateway_id=gateway_id,
                 status=DataCollectorStatus.DISCONNECTED,
                 id=collector_id
-                # record is not saved to bd so we don't have an autoincremental id; create a random uuid instead
+                # record is not saved to db so we don't have an autoincremental id; create a random uuid instead
             )
+
             if data['topics']:
                 for topic in data['topics']:
                     new_mqtt_topic = MqttTopic(
                         name=topic,
                         data_collector_id=new_data_collector.id
                     )
+
                     try:
                         new_mqtt_topic.save_to_db()
                     except Exception as exc:
@@ -2004,6 +2188,7 @@ class DataCollectorTestAPI(Resource):
 
         except Exception as exc:
             LOG.error("Something went wrong trying to add the Data Collector: {0}".format(exc))
+
             return internal("Something went wrong trying to add the Data Collector: {0}".format(exc))
 
 
@@ -2036,6 +2221,58 @@ class DataCollectorTypesAPI(Resource):
 
         return list(map(lambda type: type.to_json(), types))
 
+class DataCollectorTTNAccount(Resource):
+    @jwt_required
+    def post(self):
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+
+        if not user or not is_admin_user(user.id):
+            return forbidden()
+
+        data = ttn_credentials_parser.parse_args()
+        ttn_user = data["username"]
+        ttn_password = data["password"]
+
+        if not ttn_user or not ttn_password:
+            return bad_request("TTN credentials not provided")
+
+        ses = requests.Session()
+        ses.headers['Content-type'] = 'application/json'
+        res = ses.post('https://account.thethingsnetwork.org/api/v2/users/login', data=json.dumps({"username": ttn_user, "password": ttn_password}))
+        ses.get('https://console.thethingsnetwork.org/login')
+
+        if res.status_code != 200:
+            return internal("Login failed with provided credentials")
+
+        data_access = ses.get('https://console.thethingsnetwork.org/refresh', timeout=30)
+
+        if data_access.status_code != 200:
+            return internal("couldn't get TTN access data")
+
+        access_token = data_access.json().get('access_token')
+        res = ses.get('https://console.thethingsnetwork.org/api/gateways', headers={'Authorization': 'Bearer {}'.format(access_token)}, timeout=30)
+
+        session['user_gateways'] = [{"id":gateway.get('id'), "description":gateway.get('attributes').get('description')} for gateway in res.json()]
+
+        return jsonify({"message": "Credentials processed successfully"})
+
+class DataCollectorUserGateways(Resource):
+    @jwt_required
+    def get(self):
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+
+        if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
+            return forbidden()
+
+        user_gateways = session.get('user_gateways')
+
+        if not user_gateways:
+            return not_found()
+
+        return user_gateways
+
 
 class DevicesListAPI(Resource):
 
@@ -2044,6 +2281,7 @@ class DevicesListAPI(Resource):
 
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
             return forbidden()
 
@@ -2096,6 +2334,7 @@ class DevicesListCountAPI(Resource):
 
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
             return forbidden()
 
@@ -2144,9 +2383,11 @@ class DevicesListCountAPI(Resource):
 
         if group_by == 'HOUR':
             counts = StatsCounters.find(organization_id, since, until, data_collector)
+
             return list(map(lambda item: {'hour': "{}".format(item.hour), 'count': item.devices_count}, counts))
         else:
             counts = StatsCounters.max_devices_by_date(organization_id, since, until, data_collector)
+
             return list(map(lambda item: {'date': "{}".format(item.date), 'count': item.max_devices}, counts))
 
 
@@ -2162,6 +2403,7 @@ class AlertTypesListAPI(Resource):
             return forbidden()
 
         types = AlertType.find_all()
+
         return list(map(lambda type: type.to_json(), types))
 
 
@@ -2189,14 +2431,17 @@ class AlertTypesCountAPI(Resource):
         counts = AlertType.find_and_count_all(organization_id, _from, to, resolved, risks, data_collectors, types)
         types = AlertType.find_all()
         response = []
+
         for _type in types:
             parsed_type = _type.to_json()
             found_counts = list(filter(lambda item: item.type == _type.code, counts))
+
             if len(found_counts) > 0:
                 parsed_type['count'] = found_counts[0].count
             else:
                 parsed_type['count'] = 0
             response.append(parsed_type)
+
         return response
 
 
@@ -2206,6 +2451,7 @@ class AlertsListAPI(Resource):
     def get(self):
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
             return forbidden()
 
@@ -2274,6 +2520,7 @@ class AlertsListCountAPI(Resource):
     def get(self):
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
             return forbidden()
 
@@ -2322,15 +2569,18 @@ class AlertsListCountAPI(Resource):
 
             for count in counts:
                 count_for_response = {'hour': "{}".format(count.get('hour')), 'count': count.get('count'), 'risk': None}
+
                 for risk in risks:
                     filtered_hours_with_risks = list(
                         filter(lambda item: item.hour == count.get('hour') and item.risk == risk, dates_with_risks))
+
                     if len(filtered_hours_with_risks) > 0 and count_for_response['risk'] is None:
                         count_for_response['risk'] = risk
                 counts_for_response.append(count_for_response)
 
         elif group_by == 'TOTAL':
             count = Alert.count(organization_id, since, until, types, resolved, _risks, data_collectors)
+
             return {'count': count}
 
         else:  # GROUP BY DAY
@@ -2347,9 +2597,11 @@ class AlertsListCountAPI(Resource):
 
             for count in counts:
                 count_for_response = {'date': "{}".format(count.get('date')), 'count': count.get('count'), 'risk': None}
+
                 for risk in risks:
                     filtered_dates_with_risks = list(
                         filter(lambda item: item.date == count.get('date') and item.risk == risk, dates_with_risks))
+
                     if len(filtered_dates_with_risks) > 0 and count_for_response['risk'] is None:
                         count_for_response['risk'] = risk
                 counts_for_response.append(count_for_response)
@@ -2364,26 +2616,32 @@ class ResolveAlertAPI(Resource):
 
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id):
             return forbidden()
 
         alert = Alert.find_one(alert_id)
+
         if alert:
             data_collector = DataCollector.find_by_id(alert.data_collector_id)
+
             if not data_collector:
                 return internal('Not found data collector.')
+
             if user.organization_id != data_collector.organization_id:
                 return forbidden()
         else:
             return not_found()
 
         comment = None
+
         if len(request.data) > 0:
             try:
                 body = json.loads(request.data)
                 comment = body.get('comment') if body is not None else None
             except Exception as exc:
                 LOG.error('Error parsing body:' + str(exc))
+
                 return bad_request('Error parsing body.')
 
         if comment is not None and len(comment) > 1024:
@@ -2395,10 +2653,12 @@ class ResolveAlertAPI(Resource):
 
         try:
             alert.update()
+
             return jsonify({"message": "Alert resolved successfully", "alert": alert.to_json()})
 
         except Exception as exc:
             LOG.error('There was an error updating an alert:' + str(exc))
+
             return internal('There was an error updating an alert.')
 
 
@@ -2409,6 +2669,7 @@ class PacketsListAPI(Resource):
 
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
             return forbidden()
 
@@ -2461,6 +2722,7 @@ class PacketsListCountAPI(Resource):
 
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
             return forbidden()
 
@@ -2495,9 +2757,11 @@ class PacketsListCountAPI(Resource):
 
         if group_by == 'HOUR':
             counts = StatsCounters.find(organization_id, since, until, data_collectors)
+
             return list(map(lambda item: {'hour': "{}".format(item.hour), 'count': item.packets_count}, counts))
         else:
             counts = StatsCounters.group_by_date(organization_id, since, until, data_collectors)
+
             return list(map(lambda item: {'date': "{}".format(item.date), 'count': item.packets_count}, counts))
 
 
@@ -2508,6 +2772,7 @@ class JoinRequestsListAPI(Resource):
 
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
             return forbidden()
 
@@ -2560,6 +2825,7 @@ class JoinRequestsListCountAPI(Resource):
 
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
             return forbidden()
 
@@ -2568,6 +2834,7 @@ class JoinRequestsListCountAPI(Resource):
         until = request.args.get('date[lte]')
         group_by = request.args.get('group_by')
         data_collectors = request.args.getlist('data_collector[]')
+
         if since:
             try:
                 since = dp.parse(since)
@@ -2591,9 +2858,11 @@ class JoinRequestsListCountAPI(Resource):
 
         if group_by == 'HOUR':
             counts = StatsCounters.find(organization_id, since, until, data_collectors)
+
             return list(map(lambda item: {'hour': "{}".format(item.hour), 'count': item.joins_count}, counts))
         else:
             counts = StatsCounters.group_by_date(organization_id, since, until, data_collectors)
+
             return list(map(lambda item: {'date': "{}".format(item.date), 'count': item.joins_count}, counts))
 
 
@@ -2603,6 +2872,7 @@ class SESNotifications(Resource):
         # todo: verify authenticity of notification (compare signature in received message with signature generated from message)
         # todo: difference bounce causes
         # todo: search user mail in notification_additional_email
+
         if message_type == 'SubscriptionConfirmation':
             subscription_confirmation = json.loads(request.get_data())
             requests.get(url=subscription_confirmation['SubscribeURL'])
@@ -2612,15 +2882,19 @@ class SESNotifications(Resource):
             message = json.loads(notification['Message'])
             maildict = message['mail']
             mails_dest = maildict['destination']
+
             if mails_dest:
                 if message['notificationType'] == 'Delivery':  # mail was sent
                     # handle delivery notifications: do things (reset count)
                     LOG.debug("Mail sent")
+
                     for mail in mails_dest:
                         user_list = User.find_by_email(mail)
+
                         if user_list:
                             user = user_list[0]
                             send_mail_attempts = SendMailAttempts.find_by_user(user.id)
+
                             if send_mail_attempts:
                                 send_mail_attempts.attempts = 0
                                 try:
@@ -2641,11 +2915,14 @@ class SESNotifications(Resource):
                 elif message['notificationType'] == 'Bounce':  # mail was bounced
                     LOG.debug('bounce')
                     # handle bounce notifications: do things (count += 1)
+
                     for mail in mails_dest:
                         user_list = User.find_by_email(mail)
+
                         if user_list:
                             user = user_list[0]
                             send_mail_attempts = SendMailAttempts.find_by_user(user.id)
+
                             if send_mail_attempts:
                                 send_mail_attempts.attempts += 1
                                 try:
@@ -2653,6 +2930,7 @@ class SESNotifications(Resource):
                                 except Exception:
                                     send_mail_attempts.rollback()
                                     LOG.error(f"Couldn\'t update the number of send mail attempts. Making a rollback")
+
                                 if send_mail_attempts.attempts >= config.SMTP_MAX_SEND_MAIL_ATTEMPTS:
                                     user.blocked = True
                                     try:
@@ -2665,11 +2943,13 @@ class SESNotifications(Resource):
                                     user_id=user.id,
                                     attempts=1,
                                 )
+
                                 try:
                                     send_mail_attempts.save_to_db()
                                 except Exception:
                                     send_mail_attempts.rollback()
                                     LOG.error(f"Couldn\'t save the number of send mail attempts. Making a rollback")
+
         return 200
 
 
@@ -2680,6 +2960,7 @@ class QuarantineListAPI(Resource):
         # access rules? copied those of AlertsListAPI for now
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
             return forbidden()
 
@@ -2726,6 +3007,7 @@ class QuarantineListAPI(Resource):
 
         recs = Quarantine.find(organization_id, since, until, alert_types, devices, risks, data_collectors, order_by,
                                page, size)
+
         if page and size:
             return list(map(lambda rec: rec.to_list_json(), recs.items))
 
@@ -2738,6 +3020,7 @@ class QuarantineListCountAPI(Resource):
         # access rules? copied those of AlertsListAPI for now
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
             return forbidden()
 
@@ -2769,19 +3052,23 @@ class QuarantineListCountAPI(Resource):
         if group_by:
             if group_by == 'alert_type_name':
                 counts = Quarantine.count_by_alert_type(organization_id, since, until, alert_types, devices, risks, data_collectors)
+
                 return list(map(lambda item: {'alert_type_id': item.alert_type_id, 'alert_type_name': item.alert_type_name, 'count': item.quarantine_count}, counts))
 
             if group_by == 'alert_type_risk':
                 counts = Quarantine.count_by_risk(organization_id, since, until, alert_types, devices, risks, data_collectors)
+
                 return list(map(lambda item: {'alert_type_risk': item.alert_type_risk, 'count': item.quarantine_count}, counts))
 
             if group_by == 'data_collector_name':
                 counts = Quarantine.count_by_data_collector(organization_id, since, until, alert_types, devices, risks, data_collectors)
+
                 return list(map(lambda item: {'data_collector_id': item.data_collector_id, 'data_collector_name': item.data_collector_name, 'count': item.quarantine_count}, counts))
 
             return bad_request('invalid group_by parameter')
 
         count = Quarantine.count(organization_id, since, until, alert_types, devices, risks, data_collectors)
+
         return {'count': count}
 
 
@@ -2791,6 +3078,7 @@ class QuarantinedDevicesCountAPI(Resource):
         # access rules? copied those of AlertsListAPI for now
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
             return forbidden()
 
@@ -2824,15 +3112,18 @@ class QuarantinedDevicesCountAPI(Resource):
         if group_by:
             if group_by == 'HOUR':
                 counts = Quarantine.count_devices_by_hour(organization_id, since, until, alert_types, devices, risks, data_collectors)
+
                 return list(map(lambda item: {'hour': "{}".format(item.hour), 'count': item.device_count}, counts))
 
             if group_by == 'DAY':
                 counts = Quarantine.count_devices_by_date(organization_id, since, until, alert_types, devices, risks, data_collectors)
+
                 return list(map(lambda item: {'date': "{}".format(item.date), 'count': item.device_count}, counts))
 
             return bad_request('"Group by" value is not valid')
 
         count = Quarantine.count_devices(organization_id, since, until, alert_types, devices, risks, data_collectors)
+
         return {'count': count}
 
 
@@ -2842,6 +3133,7 @@ class QuarantineRemoveManuallyAPI(Resource):
         # access rules? copied those of AlertsListAPI for now
         user_identity = get_jwt_identity()
         user = User.find_by_username(user_identity)
+
         if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
             return forbidden()
         params = json.loads(request.get_data())
@@ -2851,7 +3143,7 @@ class QuarantineRemoveManuallyAPI(Resource):
         alert_id = Quarantine.find_by_id(quarantine_id).alert_id
         alert = Alert.find_one(alert_id)
 
-        alert = Alert('LAF-601', 
+        alert = Alert('LAF-601',
                       device_id = alert.device_id,
                       device_session_id = alert.device_session_id,
                       gateway_id = alert.gateway_id,
@@ -2861,8 +3153,9 @@ class QuarantineRemoveManuallyAPI(Resource):
                       parameters= '{"user_id" : "%s"}'.format(user_identity),
                       show = True)
         alert.save()
-        
+
         Quarantine.remove_from_quarantine_manually(quarantine_id, user.id, resolution_comment)
+
         return 200
 
 # endregion

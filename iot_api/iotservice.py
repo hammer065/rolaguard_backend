@@ -16,6 +16,8 @@ from iot_api.user_api import db
 from iot_api import mail, socketio
 from iot_api.user_api.models import RevokedTokenModel
 
+import eventlet
+
 import simplejson as json
 from pprint import pprint
 from psycopg2 import sql
@@ -86,6 +88,8 @@ api.add_resource(res.DataCollectorTestAPI, '/api/v1.0/data_collectors/test')
 api.add_resource(res.DataCollectorsCountAPI, '/api/v1.0/data_collectors/count')
 api.add_resource(res.DataCollectorActivityResource, '/api/v1.0/data_collectors/activity')
 api.add_resource(res.DataCollectorTypesAPI, '/api/v1.0/data_collector_types')
+api.add_resource(res.DataCollectorTTNAccount, '/api/v1.0/data_collectors/ttn_credentials')
+api.add_resource(res.DataCollectorUserGateways, '/api/v1.0/data_collectors/user_gateways')
 #endregion
 
 #region Devices
@@ -168,6 +172,8 @@ api.add_resource(res.ResourceUsagePerPacketLossCountAPI, '/api/v1.0/resource_usa
 #region Asset
 api.add_resource(res.AssetListAPI, '/api/v1.0/assets/search')
 #endregion
+
+eventlet.monkey_patch()
 
 if __name__ == '__main__':
     socketio.run(app, port=5000)

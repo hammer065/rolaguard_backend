@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, BigInteger, ForeignKey, DateTime, Boolean, func, Enum as SQLEnum, desc
+from sqlalchemy import Column, String, BigInteger, ForeignKey, DateTime, Boolean, func, Enum as SQLEnum, desc, Text
 from sqlalchemy.orm import relationship
 
 from enum import Enum
@@ -32,6 +32,9 @@ class DataCollector(db.Model):
     user = Column(String(120), nullable=False)
     password = Column(String(120), nullable=False)
     ssl = Column(Boolean, nullable=True)
+    ca_cert  =Column(Text, nullable=True)
+    client_cert = Column(Text, nullable=True)
+    client_key = Column(Text, nullable=True)
     gateway_id = Column(String(50), nullable=True)
     organization_id = Column(BigInteger, ForeignKey("organization.id"), nullable=False)
     policy_id = Column(BigInteger, ForeignKey("policy.id"), nullable=False)
@@ -42,13 +45,13 @@ class DataCollector(db.Model):
 
     def to_json(self):
         topics = list(map(lambda topic: topic.to_json(), self.topics))
-        
+
         password = None
         try:
             password = cipher_suite.decrypt(bytes(self.password, 'utf8')).decode('utf-8')
         except Exception:
             password = ''
-        
+
         return {
             'id': self.id,
             'name': self.name,
@@ -59,6 +62,9 @@ class DataCollector(db.Model):
             'user': self.user,
             'password': password,
             'ssl': self.ssl,
+            'ca_cert': self.ca_cert,
+            'client_cert': self.client_cert,
+            'client_key': self.client_key,
             'organization_id': self.organization_id,
             'policy_id': self.policy_id,
             'gateway_id': self.gateway_id,
@@ -86,6 +92,9 @@ class DataCollector(db.Model):
             'user': self.user,
             'password': password,
             'ssl': self.ssl,
+            'ca_cert': self.ca_cert,
+            'client_cert': self.client_cert,
+            'client_key': self.client_key,
             'gateway_id': self.gateway_id,
             'organization_id': self.organization_id,
             'data_collector_type_id': self.data_collector_type_id,
@@ -94,7 +103,7 @@ class DataCollector(db.Model):
             'status': self.status.name,
             'verified': self.verified
         }
-    
+
     def to_json_for_list(self):
         return {
             'id': self.id,
@@ -107,7 +116,7 @@ class DataCollector(db.Model):
             'status': self.status.name,
             'verified': self.verified
         }
-    
+
     def save_to_db(self):
         db.session.add(self)
         db.session.commit()
@@ -130,15 +139,15 @@ class DataCollector(db.Model):
     def find_with(cls, collector_ids, organization_id):
         try:
             query = cls.query.filter(cls.deleted_at == None)
-            
+
             if collector_ids is not None:
                 query = query.filter(cls.id.in_(collector_ids))
-            
+
             if organization_id:
                 query = query.filter(cls.organization_id == organization_id)
 
             return query.all()
-        
+
         except Exception as e:
             LOG.error(e)
 
@@ -156,8 +165,10 @@ class DataCollector(db.Model):
     def find_by_ids(cls, collector_ids):
         try:
             collectors = []
+
             for collector_id in collector_ids:
                 collectors.append(DataCollector.find_by_id(collector_id))
+
             return collectors
         except Exception as e:
             LOG.error(e)
@@ -167,12 +178,14 @@ class DataCollector(db.Model):
         try:
             query = db.session.query(cls.id).filter(cls.deleted_at == None)\
                 .filter(cls.organization_id == organization_id)
+
             if policy_id:
                 query = query.filter(cls.policy_id == policy_id)
+
             return query.count()
         except Exception as e:
             LOG.error(e)
-    
+
     @classmethod
     def count_exclude_disabled(cls, user):
         # It's here to avoid circular import conflict
@@ -183,6 +196,7 @@ class DataCollector(db.Model):
                 .filter(cls.status != DataCollectorStatus.DISABLED)
 
             user_collector_ids = get_user_collector_ids(user)
+
             if user_collector_ids and len(user_collector_ids) > 0:
                 query = query.filter(DataCollector.id.in_(user_collector_ids))
 
@@ -198,9 +212,11 @@ class DataCollector(db.Model):
             query = cls.query.filter(cls.deleted_at == None)
 
             # I don't know if this method is ever called by the system user. But if it happens it should see everything.
+
             if not is_system_user(user.id):
                 query = query.filter(cls.organization_id == user.organization_id)
                 user_collector_ids = get_user_collector_ids(user)
+
                 if user_collector_ids and len(user_collector_ids) > 0:
                     query = query.filter(DataCollector.id.in_(user_collector_ids))
 
@@ -215,11 +231,14 @@ class DataCollector(db.Model):
     def find_by_organization_id_and_policy_id(cls, organization_id, policy_id):
         try:
             query = cls.query.filter(cls.deleted_at == None)
+
             if organization_id:
                 query = query.filter(cls.organization_id == organization_id)
+
             if policy_id:
                 query = query.filter(cls.policy_id == policy_id)
             query = query.order_by(desc(cls.created_at))
+
             return query.all()
         except Exception as e:
             LOG.error(e)
@@ -234,26 +253,33 @@ class DataCollector(db.Model):
                 .filter(Alert.show == True)
 
             # I don't know if this method is ever called by the system user. But if it happens it should see everything.
+
             if not is_system_user(user.id):
                 query = query.filter(cls.organization_id == user.organization_id)
                 user_collector_ids = get_user_collector_ids(user, data_collectors)
+
                 if user_collector_ids and len(user_collector_ids) > 0:
                     query = query.filter(DataCollector.id.in_(user_collector_ids))
 
             if _from:
                 query = query.filter(Alert.created_at >= _from)
+
             if to:
                 query = query.filter(Alert.created_at <= to)
+
             if types and len(types) > 0:
                 query = query.filter(Alert.type.in_(types))
+
             if resolved is not None:
                 if resolved:
                     query = query.filter(Alert.resolved_at != None)
                 else:
                     query = query.filter(Alert.resolved_at == None)
+
             if risks and len(risks) > 0:
                 query = query.join(AlertType).filter(AlertType.risk.in_(risks))
             query = query.group_by(Alert.data_collector_id)
+
             return query.all()
         except Exception as e:
             LOG.error(e)
