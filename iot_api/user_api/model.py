@@ -1135,7 +1135,7 @@ class Quarantine(db.Model):
 
     @classmethod
     def get_list_query(cls, organization_id, since, until, alert_types, devices, risks, data_collectors):
-        query = cls.query.filter(cls.organization_id == organization_id).filter(cls.resolved_at.is_(None))\
+        query = cls.query.select_from(Quarantine).filter(cls.organization_id == organization_id).filter(cls.resolved_at.is_(None))\
             .filter(DataCollector.deleted_at.is_(None)).join(Alert).join(AlertType).join(DataCollector)
 
         if since:
