@@ -1,6 +1,7 @@
 from iot_api.user_api.models.DataCollectorLogEvent import DataCollectorLogEvent
 from iot_api.user_api.models.DataCollectorType import DataCollectorType
 from iot_api.user_api.models.DataCollector import DataCollector, DataCollectorStatus
+from iot_api.user_api.models.TTNRegion import TTNRegion
 from iot_api.user_api.models.MqttTopic import MqttTopic
 from iot_api.user_api.models.NotificationAdditionalEmail import NotificationAdditionalEmail
 from iot_api.user_api.models.NotificationAdditionalTelephoneNumber import NotificationAdditionalTelephoneNumber

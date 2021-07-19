@@ -37,6 +37,7 @@ from iot_api.user_api.models import ChangeEmailRequests, GlobalData, LoginAttemp
 from iot_api.user_api.models.DataCollector import DataCollector, DataCollectorStatus
 from iot_api.user_api.models.DataCollectorLogEvent import DataCollectorLogEvent, DataCollectorLogEventType
 from iot_api.user_api.models.DataCollectorType import DataCollectorType
+from iot_api.user_api.models.TTNRegion import TTNRegion
 from iot_api.user_api.models.MqttTopic import MqttTopic
 from iot_api.user_api.models.NotificationAlertSettings import NotificationAlertSettings
 from iot_api.user_api.models.NotificationData import NotificationData
@@ -50,6 +51,7 @@ from urllib.request import urlopen
 import json
 
 TTN_COLLECTOR = 'ttn_collector'
+TTN_V3_COLLECTOR = 'ttn_v3_collector'
 
 LOG = iot_logging.getLogger(__name__)
 
@@ -72,6 +74,9 @@ data_collector_parser.add_argument("client_key", help="Missing client_key attrib
 data_collector_parser.add_argument("data_collector_type_id", help="Missing type attribute", required=True)
 data_collector_parser.add_argument("policy_id", help="Missing policy attribute", required=True)
 data_collector_parser.add_argument("gateway_id", help="Missing gateway_id attribute", required=False)
+data_collector_parser.add_argument("gateway_name", help="Missing gateway_name attribute", required=False)
+data_collector_parser.add_argument("gateway_api_key", help="Missing gateway_api_key attribute", required=False)
+data_collector_parser.add_argument("region_id", help="Missing region_id attribute", required=False)
 data_collector_parser.add_argument("topics", help="Missing topics attribute", required=False, action="append")
 
 register_parser = reqparse.RequestParser()
@@ -1600,6 +1605,9 @@ class DataCollectorAPI(Resource):
         if type.type == TTN_COLLECTOR:
             if data.port or data.ip:
                 return bad_request('Not allowed ip and port in ttn_collector type')
+        elif type.type == TTN_V3_COLLECTOR:
+            if data.port or data.ip or data.user or data.password:
+                return bad_request('Not allowed ip, port, user or password in ttn_v3_collector type')
         else:
             try:
                 if not (0 < int(data.port, 10) <= 65536):
@@ -1639,6 +1647,12 @@ class DataCollectorAPI(Resource):
         if data.password:
             uncryptedPassword = bytes(data.password, 'utf-8')
             cryptedPassword = cipher_suite.encrypt(uncryptedPassword).decode('utf8')
+        
+        cryptedApiKey = None
+
+        if data.gateway_api_key:
+            uncryptedApiKey = bytes(data.gateway_api_key, 'utf-8')
+            cryptedApiKey = cipher_suite.encrypt(uncryptedApiKey).decode('utf8')
 
         try:
             data_collector.name = data.name,
@@ -1654,6 +1668,9 @@ class DataCollectorAPI(Resource):
             data_collector.data_collector_type_id = type_id
             data_collector.policy_id = policy_id
             data_collector.gateway_id = gateway_id
+            data_collector.gateway_name = data.gateway_name,
+            data_collector.gateway_api_key = cryptedApiKey,
+            data_collector.region_id = data.region_id,
             try:
                 data_collector.update_to_db()
             except Exception as exc:
@@ -1889,6 +1906,9 @@ class DataCollectorListAPI(Resource):
         if type.type == TTN_COLLECTOR:
             if data.port or data.ip:
                 return bad_request('Not allowed ip and port in ttn_collector type')
+        elif type.type == TTN_V3_COLLECTOR:
+            if data.port or data.ip or data.user or data.password:
+                return bad_request('Not allowed ip, port, user or password in ttn_v3_collector type')
         else:
             try:
                 if not (0 < int(data.port, 10) <= 65536):
@@ -1920,8 +1940,13 @@ class DataCollectorListAPI(Resource):
             uncryptedPassword = bytes(data.password, 'utf-8')
             cryptedPassword = cipher_suite.encrypt(uncryptedPassword).decode('utf8')
 
-        try:
+        cryptedApiKey = None
 
+        if data.gateway_api_key:
+            uncryptedApiKey = bytes(data.gateway_api_key, 'utf-8')
+            cryptedApiKey = cipher_suite.encrypt(uncryptedApiKey).decode('utf8')
+
+        try:
             new_data_collector = DataCollector(
                 name=data.name,
                 type=type,
@@ -1939,6 +1964,9 @@ class DataCollectorListAPI(Resource):
                 client_key=data.client_key,
                 data_collector_type_id=type_id,
                 gateway_id=gateway_id,
+                gateway_name=data.gateway_name,
+                gateway_api_key=cryptedApiKey,
+                region_id=data.region_id,
                 status=DataCollectorStatus.DISCONNECTED
             )
             try:
@@ -2098,6 +2126,8 @@ class DataCollectorTestAPI(Resource):
         data = data_collector_parser.parse_args()
         organization_id = user.organization_id
         gateway_id = data.gateway_id
+        gateway_name = data.gateway_name
+        region_id = data.region_id
         # data verification
         type_id = data.data_collector_type_id
 
@@ -2112,6 +2142,9 @@ class DataCollectorTestAPI(Resource):
         if type.type == TTN_COLLECTOR:
             if data.port or data.ip:
                 return bad_request('Not allowed ip and port in ttn_collector type')
+        elif type.type == TTN_V3_COLLECTOR:
+            if data.port or data.ip or data.user or data.password:
+                return bad_request('Not allowed ip, port, user or password in ttn_v3_collector type')
         else:
             try:
                 if not (0 < int(data.port, 10) <= 65536):
@@ -2143,6 +2176,12 @@ class DataCollectorTestAPI(Resource):
             uncryptedPassword = bytes(data.password, 'utf-8')
             cryptedPassword = cipher_suite.encrypt(uncryptedPassword).decode('utf8')
 
+        cryptedApiKey = None
+
+        if data.gateway_api_key:
+            uncryptedApiKey = bytes(data.gateway_api_key, 'utf-8')
+            cryptedApiKey = cipher_suite.encrypt(uncryptedApiKey).decode('utf8')
+
         # create new data collector
         try:
             collector_id = str(uuid.uuid4())
@@ -2164,6 +2203,9 @@ class DataCollectorTestAPI(Resource):
                 organization_id=organization_id,
                 data_collector_type_id=type_id,
                 gateway_id=gateway_id,
+                gateway_name=gateway_name,
+                gateway_api_key=cryptedApiKey,
+                region_id=region_id,
                 status=DataCollectorStatus.DISCONNECTED,
                 id=collector_id
                 # record is not saved to db so we don't have an autoincremental id; create a random uuid instead
@@ -2220,6 +2262,22 @@ class DataCollectorTypesAPI(Resource):
         types = DataCollectorType.find_all()
 
         return list(map(lambda type: type.to_json(), types))
+
+
+class DataCollectorTTNRegionsAPI(Resource):
+
+    @jwt_required
+    def get(self):
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+
+        if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
+            return forbidden()
+
+        regions = TTNRegion.find_all()
+
+        return list(map(lambda region: region.to_json(), regions))
+
 
 class DataCollectorTTNAccount(Resource):
     @jwt_required
