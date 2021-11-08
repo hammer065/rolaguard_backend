@@ -7,7 +7,7 @@ flask_sqlalchemy
 validate_email
 requests
 passlib
-psycopg2-binary
+psycopg2-binary==2.8.6
 flask-cors
 paho-mqtt
 simplejson
