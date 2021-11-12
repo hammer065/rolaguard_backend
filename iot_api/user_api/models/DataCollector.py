@@ -24,7 +24,7 @@ class DataCollector(db.Model):
     data_collector_type_id = Column(BigInteger, ForeignKey("data_collector_type.id"), nullable=False)
     type = relationship("DataCollectorType", lazy="joined")
     region = relationship("TTNRegion", lazy="joined")
-    policy = relationship("Policy", lazy="joined")
+    policy = relationship("Policy", lazy="joined",back_populates="data_collectors")
     name = Column(String(120), nullable=False)
     description = Column(String(1000), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)

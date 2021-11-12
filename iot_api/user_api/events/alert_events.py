@@ -53,7 +53,7 @@ def consumer():
             channel.basic_consume(on_message_callback=handle_alert_events, queue=queue, auto_ack=True)
             channel.start_consuming()
         except Exception as e:
-            LOG.error(f"Error on connection to queue alert_events:\n{e}")
+            LOG.error("Error on connection to queue alert_events. Retrying connection.")
 
 def handle_alert_events(ch, method, properties, body):
     event = None
