@@ -746,7 +746,7 @@ class CreatePasswordAPI(Resource):
             np = NotificationPreferences.find_one(current_user.id)
 
             if not np:
-                NotificationPreferences(user_id=current_user.id, sms=False, push=False, email=False).save()
+                NotificationPreferences(user_id=current_user.id, sms=False, push=False, email=False, webhook=False).save()
 
             nas = NotificationAlertSettings.find_one(current_user.id)
 

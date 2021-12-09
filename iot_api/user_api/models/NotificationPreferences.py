@@ -8,8 +8,9 @@ class NotificationPreferences(db.Model):
     sms = Column(Boolean, nullable=False, default=False)
     push = Column(Boolean, nullable=False, default=False)
     email = Column(Boolean, nullable=False, default=False)
+    webhook = Column(Boolean, nullable=False, default=False)
 
-    def to_dict(self, phones, emails):
+    def to_dict(self, phones, emails, webhooks):
         return [
             {
                 'destination': 'sms',
@@ -24,6 +25,11 @@ class NotificationPreferences(db.Model):
             {
                 'destination': 'push',
                 'enabled': self.push
+            },
+            {
+                'destination':'webhook',
+                'enabled': self.webhook,
+                'additional': webhooks
             }
         ]
 

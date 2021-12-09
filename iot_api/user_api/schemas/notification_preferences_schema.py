@@ -23,6 +23,8 @@ class AdditionalSchema(Schema):
     id = fields.Int(required=False)
     phone = fields.Str(required=False)
     email = fields.Email(required=False)
+    url = fields.Str(required=False)
+    secret = fields.Str(required=False)
     active = fields.Bool(required=False)
     
 class DestinationSchema(Schema):

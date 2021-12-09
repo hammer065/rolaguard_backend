@@ -12,7 +12,7 @@ from flask_mail import Message
 from iot_api import app
 from iot_api import mail
 from iot_api import rabbit_parameters
-from iot_api.user_api.model import User, Alert, AlertType
+from iot_api.user_api.model import User, Alert, AlertType, Webhook
 from iot_api.user_api.models import (
     Notification, NotificationData, NotificationPreferences, NotificationDataCollectorSettings,
     NotificationAlertSettings, NotificationAssetImportance, NotificationAdditionalEmail,
@@ -24,7 +24,8 @@ from iot_api.user_api.repository import AssetRepository, DeviceRepository, Gatew
 from iot_api.user_api.websocket.notifications import emit_notification_event
 from iot_api.user_api.websocket.alerts import emit_alert_event
 from iot_api import config
-import smtplib  
+import smtplib
+import requests, hmac, hashlib
 import email.utils
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -71,6 +72,8 @@ def handle_alert_events(ch, method, properties, body):
     alert_type_code = event.get('alert_type')
     phones = []
     emails = []
+    webhooks = []
+    webhook_urls = []
     if event_type == 'NEW':
         alert_type = AlertType.find_one(alert_type_code)
         users = User.find_all_user_by_organization_id(organization_id)
@@ -142,7 +145,12 @@ def handle_alert_events(ch, method, properties, body):
                     for item in additional:
                         if item.active and not item.email in emails:
                             emails.append(item.email)
-                    
+                
+                if preferences.webhook:
+                    for webhook in Webhook.find_all_by_user_id(user.id):
+                        if webhook.active and not webhook.target_url in webhook_urls:
+                            webhook_urls.append(webhook.target_url)
+                            webhooks.append(webhook)
 
     # Send a SMS message to the specified phone number
     for phone in phones:
@@ -181,6 +189,22 @@ def handle_alert_events(ch, method, properties, body):
                 except Exception as exc:
                     server.close()
                     print(exc)
-            server.close()  
+            server.close()
+    
+    # Send a POST request to the specified url
+    # If the destination supports authentication, it will send a signature within the request  
+    for webhook in webhooks:
+        try:
+            if not webhook.url_secret:
+                requests.post(url=webhook.target_url,data=json.dumps(alert.to_json()),headers={'Content-Type':'application/json'})
+            else:
+                request = requests.Request(method='POST',url=webhook.target_url,headers={'Content-Type':'application/json'},data=json.dumps(alert.to_json()))
+                prepared_request = request.prepare()
+                signature = hmac.new(bytes(webhook.url_secret,'utf-8'),bytes(prepared_request.body,'utf-8'),digestmod=hashlib.sha256)
+                prepared_request.headers['signature'] = signature.hexdigest()
+                with requests.Session() as session:
+                    session.send(prepared_request)
+        except Exception as exc:
+            LOG.error(exc)
 
 subscribe_alert_consumers()
