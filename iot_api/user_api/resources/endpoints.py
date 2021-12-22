@@ -50,6 +50,8 @@ from urllib.parse import urlencode
 from urllib.request import urlopen
 import json
 
+import phonenumbers
+
 TTN_COLLECTOR = 'ttn_collector'
 TTN_V3_COLLECTOR = 'ttn_v3_collector'
 
@@ -110,6 +112,7 @@ user_update_parser.add_argument("phone", help="Missing phone attribute.", requir
 user_update_parser.add_argument("user_roles", help="Missing user_roles attribute.", required=True, action="append")
 user_update_parser.add_argument("data_collectors", help="Missing data_collectors attribute.", required=False,
                                 action="append")
+user_update_parser.add_argument("first_login", help="Missing first_login attribute.", required=False)
 
 user_change_password_parser = reqparse.RequestParser()
 user_change_password_parser.add_argument("password", help="Missing password attribute.", required=True)
@@ -278,23 +281,14 @@ class UserInfoAPI(Resource):
 
         data = user_update_parser.parse_args()
 
-        phone_without_space = ""
-
+        # validating a phone number
+    
         if data["phone"]:
-            phone_without_space = data["phone"].strip()
-
-        phone_spaces = phone_without_space.split(" ")
-
-        if len(phone_spaces) > 1:
-            return internal("Phone {0} is not valid".format(phone_without_space))
-
-        phone_without_space_and_signs = phone_without_space.replace('+', '', 1)
-        phone_without_space_and_signs = phone_without_space_and_signs.replace('-', '', 1)
-
-        if len(phone_without_space) > 0 and (not phone_without_space.count("+") == 1 or not phone_without_space.count(
-                "-") == 1 or not phone_without_space_and_signs.isdigit()):
-
-            return internal("Phone {0} is not valid".format(phone_without_space))
+            phone_number = phonenumbers.parse(data["phone"]) 
+            valid = phonenumbers.is_valid_number(phone_number)
+        
+        if not valid:
+            return internal("Phone {0} is not valid".format(phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.E164)))
 
         user_roles = data["user_roles"]
 
@@ -385,11 +379,17 @@ class UserInfoAPI(Resource):
             else:
                 collectors = []
 
+            # cast first_login value
+            if data["first_login"]:
+                if data["first_login"] == 'False':
+                    current_user.first_login = False
+                else:
+                    current_user.first_login  = True
 
             # update data in current user after checking that it has an active token or it's an active user,
             # and that it's not trying to autodowngrade role
             current_user.full_name = data["full_name"]
-            current_user.phone = phone_without_space
+            current_user.phone = phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.E164)
             current_user.collectors = collectors
             try:
                 current_user.update_to_db()

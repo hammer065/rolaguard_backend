@@ -28,3 +28,4 @@ py3DNS
 flask_socketio<5  # flask_socketio 5 is incompatible with the frontend js library in use
 flask-session
 validators
+phonenumbers

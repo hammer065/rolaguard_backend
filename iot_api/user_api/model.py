@@ -89,6 +89,7 @@ class User(db.Model):
     deleted = db.Column(db.Boolean, nullable=False, default=False)
     blocked = db.Column(db.Boolean, nullable=False, default=False)
     collectors = relationship("DataCollector", secondary=user_to_data_collector_association_table, lazy="joined")
+    first_login = db.Column(db.Boolean, nullable=False, default=True)
 
     def to_json(self):
         try:
@@ -113,7 +114,8 @@ class User(db.Model):
                 "user_roles": user_roles,
                 "organization_id": self.organization_id,
                 "active": self.active,
-                "organization_name": organization_name
+                "organization_name": organization_name,
+                "first_login": self.first_login
             }
         except Exception as e:
             LOG.error(e)
