@@ -397,7 +397,8 @@ class UserInfoAPI(Resource):
                 current_user.rollback()
                 raise exc  
 
-            return jsonify({"message": "User {0} updated successfully".format(current_user.username)})
+            #return updated user
+            return jsonify(current_user.to_json())
         except Exception as exc:
             LOG.error("Something went wrong trying to update the User {0}: {1}".format(current_user.username, exc))
 
