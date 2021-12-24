@@ -1,6 +1,7 @@
 from sqlalchemy import Column, BigInteger, Boolean, DateTime, String
 from sqlalchemy.sql.schema import ForeignKey
 from iot_api.user_api import db
+from iot_api import config
 
 class NotificationAdditionalTelephoneNumber(db.Model):
     id = Column(BigInteger, primary_key=True)
@@ -25,6 +26,24 @@ class NotificationAdditionalTelephoneNumber(db.Model):
 
     def update(self):
         db.session.commit()
+
+    @classmethod
+    def send_sms(cls,sns,alert_type,phones):
+        for phone in phones:
+            if config.SEND_SMS:             
+                sns.publish(
+                    PhoneNumber=phone,
+                    Message=f'New notification from {config.BRAND_NAME}. There\'s a new alert: {alert_type.name}. You can check this accessing to {config.BRAND_URL}',
+                )
+
+    @classmethod
+    def add_not_repeated(cls,user,phones):
+        if user.phone and not user.phone in phones:
+            phones.append(user.phone)
+            additional = cls.find(user_id = user.id)
+            for item in additional:
+                if item.active and not item.phone in phones:
+                    phones.append(item.phone)
 
     @classmethod
     def find(cls, user_id):

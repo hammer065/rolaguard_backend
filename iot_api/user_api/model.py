@@ -1,3 +1,9 @@
+import hashlib
+import hmac
+import requests
+from iot_api.user_api.models.Notification import *
+from iot_api.user_api.models.NotificationData import *
+from iot_api import socketio
 from iot_api import bcrypt
 from iot_api.user_api.enums import RoleTypes
 from iot_api.user_api.models.DataCollector import *
@@ -1354,6 +1360,39 @@ class Webhook(db.Model):
 
     def save(self):
         db.session.add(self)
+
+    @classmethod
+    def add_not_repeated(cls,user,webhooks):
+        for webhook in Webhook.find_all_by_user_id(user.id):
+            if webhook.active:
+                if not (webhook.target_url,webhook.url_secret) in webhooks:
+                    webhooks[(webhook.target_url,webhook.url_secret)]=[webhook]
+                else: 
+                    webhooks[(webhook.target_url,webhook.url_secret)].append(webhook)
+
+    @classmethod
+    def send_request(cls,alert,webhooks):
+        for url_secret,webhook_list in webhooks.items():
+            response = ""
+            try:
+                if not url_secret[1]:
+                    response = requests.post(url=url_secret[0],data=json.dumps(alert.to_json()),headers={'Content-Type':'application/json'})
+                else:
+                    request = requests.Request(method='POST',url=url_secret[0],headers={'Content-Type':'application/json'},data=json.dumps(alert.to_json()))
+                    prepared_request = request.prepare()
+                    signature = hmac.new(bytes(url_secret[1],'utf-8'),bytes(prepared_request.body,'utf-8'),digestmod=hashlib.sha256)
+                    prepared_request.headers['signature'] = signature.hexdigest()
+                    with requests.Session() as session:
+                        response = session.send(prepared_request)
+            except Exception as exc:
+                LOG.debug(f"Error while sending a request.{exc}")
+            
+            for webhook in webhook_list:
+                notification = Notification(type = 'NEW_ALERT', alert_id=alert.id, user_id=webhook.webhook_user_id, created_at = datetime.now(), notification_source='webhook',notification_state=response.status_code)
+                notification.save()
+                data = NotificationData.find_one(webhook.webhook_user_id)
+                if data and data.ws_sid:
+                    socketio.emit('new_notification', notification.to_dict(), room=data.ws_sid)
 
     @classmethod
     def find_all_by_user_id(cls, user_id:User.id):

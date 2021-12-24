@@ -6,32 +6,24 @@ from threading import Thread
 from datetime import datetime
 
 import boto3
-from flask import render_template
-from flask_mail import Message
 
 from iot_api import app
-from iot_api import mail
 from iot_api import rabbit_parameters
 from iot_api.user_api.model import User, Alert, AlertType, Webhook
 from iot_api.user_api.models import (
-    Notification, NotificationData, NotificationPreferences, NotificationDataCollectorSettings,
+    NotificationPreferences, NotificationDataCollectorSettings,
     NotificationAlertSettings, NotificationAssetImportance, NotificationAdditionalEmail,
     NotificationAdditionalTelephoneNumber, NotificationAssetTag
 )
 from iot_api.user_api.repository import AssetRepository, DeviceRepository, GatewayRepository
 #from iot_api.user_api.enums import WebUrl
 
-from iot_api.user_api.websocket.notifications import emit_notification_event
 from iot_api.user_api.websocket.alerts import emit_alert_event
 from iot_api import config
-import smtplib
-import requests, hmac, hashlib
-import email.utils
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 LOG = iot_logging.getLogger(__name__)
 
+sns=None
 if config.SEND_SMS:
     try:
         sns = boto3.client('sns')
@@ -54,7 +46,7 @@ def consumer():
             channel.basic_consume(on_message_callback=handle_alert_events, queue=queue, auto_ack=True)
             channel.start_consuming()
         except Exception as e:
-            LOG.error("Error on connection to queue alert_events. Retrying connection.")
+            LOG.error(f"Error on connection to queue alert_events. Retrying connection.")
 
 def handle_alert_events(ch, method, properties, body):
     event = None
@@ -72,8 +64,7 @@ def handle_alert_events(ch, method, properties, body):
     alert_type_code = event.get('alert_type')
     phones = []
     emails = []
-    webhooks = []
-    webhook_urls = []
+    webhooks = {}
     if event_type == 'NEW':
         alert_type = AlertType.find_one(alert_type_code)
         users = User.find_all_user_by_organization_id(organization_id)
@@ -122,89 +113,33 @@ def handle_alert_events(ch, method, properties, body):
                 LOG.error(f"Error {e} on handling NotificationAssetTag preferences for user {user.id}. Ignoring this preference")
                 has_all_tags = True
 
-            if alert_settings and getattr(alert_settings, alert_type.risk.lower()) and is_important_for_user and has_all_tags and dc_settings and dc_settings.enabled:
-                data = NotificationData.find_one(user.id)
-                notification = Notification(type = 'NEW_ALERT', alert_id = alert_id, user_id=user.id, created_at = datetime.now())
-                notification.save()
-                if data and data.ws_sid and preferences and preferences.push:
-                    emit_notification_event(notification.to_dict(), data.ws_sid)
+            if not(alert_settings 
+            and alert_type 
+            and getattr(alert_settings, alert_type.risk.lower())
+            and is_important_for_user
+            and has_all_tags
+            and dc_settings
+            and dc_settings.enabled):
+                continue
 
             if preferences:
                 if preferences.sms:
-                    if user.phone and not user.phone in phones:
-                        phones.append(user.phone)
-                    additional = NotificationAdditionalTelephoneNumber.find(user_id = user.id)
-                    for item in additional:
-                        if item.active and not item.phone in phones:
-                            phones.append(item.phone)
+                    NotificationAdditionalTelephoneNumber.add_not_repeated(user,phones)
 
                 if preferences.email:
-                    if user.email and not user.email in emails:
-                        emails.append(user.email)
-                    additional = NotificationAdditionalEmail.find(user_id = user.id)
-                    for item in additional:
-                        if item.active and not item.email in emails:
-                            emails.append(item.email)
+                    NotificationAdditionalEmail.add_not_repeated(user,emails)
                 
                 if preferences.webhook:
-                    for webhook in Webhook.find_all_by_user_id(user.id):
-                        if webhook.active and not webhook.target_url in webhook_urls:
-                            webhook_urls.append(webhook.target_url)
-                            webhooks.append(webhook)
+                    Webhook.add_not_repeated(user,webhooks)
 
     # Send a SMS message to the specified phone number
-    for phone in phones:
-        if config.SEND_SMS:             
-            sns.publish(
-                PhoneNumber=phone,
-                Message=f'New notification from {config.BRAND_NAME}. There\'s a new alert: {alert_type.name}. You can check this accessing to {config.BRAND_URL}',
-            )
-
-    if len(emails) > 0:
-        with app.app_context():
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = f"New {config.BRAND_NAME} Notification"
-            msg['From'] = email.utils.formataddr((config.SMTP_SENDER_NAME, config.SMTP_SENDER))
-            part = MIMEText(
-                render_template(
-                    'notification.html',
-                    brand_name=config.BRAND_NAME,
-                    full_url=config.BRAND_URL,
-                    alert_type=alert_type.name
-                    ), 'html'
-                )
-            msg.attach(part)
-            server = smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT)
-            #server.set_debuglevel(1)
-            server.ehlo()
-            server.starttls()
-            #stmplib docs recommend calling ehlo() before & after starttls()
-            server.ehlo()
-            server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
-
-            for email_user in emails:
-                try:
-                    msg['To'] = email_user
-                    server.sendmail(config.SMTP_SENDER,email_user, msg.as_string())
-                except Exception as exc:
-                    server.close()
-                    print(exc)
-            server.close()
+    if sns:
+        NotificationAdditionalTelephoneNumber.send_sms(sns,alert_type,phones)
+    
+    NotificationAdditionalEmail.send_emails(app,alert_type,emails)
     
     # Send a POST request to the specified url
-    # If the destination supports authentication, it will send a signature within the request  
-    for webhook in webhooks:
-        try:
-            if not webhook.url_secret:
-                requests.post(url=webhook.target_url,data=json.dumps(alert.to_json()),headers={'Content-Type':'application/json'})
-            else:
-                request = requests.Request(method='POST',url=webhook.target_url,headers={'Content-Type':'application/json'},data=json.dumps(alert.to_json()))
-                prepared_request = request.prepare()
-                signature = hmac.new(bytes(webhook.url_secret,'utf-8'),bytes(prepared_request.body,'utf-8'),digestmod=hashlib.sha256)
-                prepared_request.headers['signature'] = signature.hexdigest()
-                with requests.Session() as session:
-                    session.send(prepared_request)
-        except Exception as exc:
-            LOG.error(exc)
+    # If the destination supports authentication, it will send a signature within the request
+    Webhook.send_request(alert,webhooks)
 
 subscribe_alert_consumers()
