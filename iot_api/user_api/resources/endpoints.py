@@ -747,7 +747,7 @@ class CreatePasswordAPI(Resource):
             np = NotificationPreferences.find_one(current_user.id)
 
             if not np:
-                NotificationPreferences(user_id=current_user.id, sms=False, push=False, email=False).save()
+                NotificationPreferences(user_id=current_user.id, sms=False, push=False, email=False, webhook=False).save()
 
             nas = NotificationAlertSettings.find_one(current_user.id)
 
@@ -1942,11 +1942,9 @@ class DataCollectorListAPI(Resource):
             cryptedPassword = cipher_suite.encrypt(uncryptedPassword).decode('utf8')
 
         cryptedApiKey = None
-
         if data.gateway_api_key:
             uncryptedApiKey = bytes(data.gateway_api_key, 'utf-8')
             cryptedApiKey = cipher_suite.encrypt(uncryptedApiKey).decode('utf8')
-
         try:
             new_data_collector = DataCollector(
                 name=data.name,

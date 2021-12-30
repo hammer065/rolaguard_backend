@@ -41,7 +41,7 @@ def test_results_consumer():
             channel.basic_consume(on_message_callback=handle_test_events, queue=queue, auto_ack=True)
             channel.start_consuming()
         except Exception as e:
-            LOG.error(f"Error connecting to queue {queue}:\n{e}")
+            LOG.error(f"Error connecting to queue {queue}. Retrying connection.")
 
 def handle_test_events(ch, method, properties, body):
     """
@@ -91,7 +91,7 @@ def consumer():
             channel.basic_consume(on_message_callback=handle_status_events, queue=queue, auto_ack=True)
             channel.start_consuming()
         except Exception as e:
-            LOG.error(f"Error on connection to queue {queue}:\n{e}")
+            LOG.error(f"Error on connection to queue {queue}. Retrying connection.")
             continue
 
 def handle_status_events(ch, method, properties, body):

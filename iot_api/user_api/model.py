@@ -1342,3 +1342,29 @@ def is_system_user(user_id):
         return True
     else:
         return False
+
+class Webhook(db.Model):
+    __tablename__ = "webhook"
+    id = Column(BigInteger, primary_key=True,autoincrement=True)
+    webhook_user_id = Column(BigInteger, ForeignKey("iot_user.id"),nullable=False)
+    target_url = Column(String(2000), nullable=False)
+    url_secret = Column(String(256),nullable=True)
+    active = Column(Boolean,nullable=False)
+
+    def delete(self):
+        db.session.delete(self)
+
+    def save(self):
+        db.session.add(self)
+
+    @classmethod
+    def find_all_by_user_id(cls, user_id:User.id):
+        return cls.query.filter(cls.webhook_user_id==user_id).all()
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'url':self.target_url,
+            'secret':self.url_secret,
+            'active':self.active
+        }

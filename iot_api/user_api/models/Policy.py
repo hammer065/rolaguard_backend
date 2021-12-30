@@ -14,7 +14,7 @@ class Policy(db.Model):
     items = relationship("PolicyItem", lazy="joined", cascade="all, delete-orphan")
     organization_id = Column(BigInteger, ForeignKey("organization.id"), nullable=True)
     is_default = Column(Boolean, nullable=False)
-    data_collectors = relationship("DataCollector", lazy="joined")
+    data_collectors = relationship("DataCollector", lazy="joined",back_populates="policy")
 
     def to_dict(self):
         items = [item.to_dict() for item in self.items]

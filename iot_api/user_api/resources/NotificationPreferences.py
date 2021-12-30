@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote_plus
 
 from iot_api import bcrypt, mail, app
-from iot_api.user_api.model import User
+from iot_api.user_api.model import User, Webhook
 #from iot_api.user_api.enums import WebUrl
 from iot_api.user_api.models import (
     NotificationPreferences, NotificationAlertSettings,
@@ -50,10 +50,12 @@ class NotificationPreferencesAPI(Resource):
         dc_settings = NotificationDataCollectorSettings.find(user.id)
         emails = NotificationAdditionalEmail.find(user.id)
         phones = NotificationAdditionalTelephoneNumber.find(user.id)
+        webhooks = Webhook.find_all_by_user_id(user.id)
 
         emails = [item.to_dict() for item in emails]
         phones = [item.to_dict() for item in phones]
-        preferences = preferences.to_dict(phones, emails)
+        webhooks = [item.to_dict() for item in webhooks]
+        preferences = preferences.to_dict(phones, emails,webhooks)
         alert_settings = alert_settings.to_dict()
         dc_settings = [dc.to_dict() for dc in dc_settings]
 
@@ -107,9 +109,9 @@ class NotificationPreferencesAPI(Resource):
             np = NotificationPreferences.find_one(user.id)
             for destination in destinations:
                 attr = destination.get('destination')
-                if attr not in ('sms', 'push', 'email'):
-                    LOG.error('Destination must be one these: sms, push, email. It\'s: {0}'.format(attr))
-                    return {'error': 'Destination must be one these: sms, push, email'}, 400
+                if attr not in ('sms', 'push', 'email','webhook'):
+                    LOG.error('Destination must be one these: sms, push, email, webhook. It\'s: {0}'.format(attr))
+                    return {'error': 'Destination must be one these: sms, push, email, webhook'}, 400
                 setattr(np, attr, destination.get('enabled'))
                 if attr == 'sms' and destination.get('enabled'):
                     existing_phones = NotificationAdditionalTelephoneNumber.find(user.id)
@@ -167,7 +169,17 @@ class NotificationPreferencesAPI(Resource):
                             token = random_string(10)
                             token = quote_plus(token)
                             activation_emails.append({'email': email, 'token': token})
-                            NotificationAdditionalEmail(email=email, creation_date=datetime.now(), token = token, active = False, user_id = user.id).save()                
+                            NotificationAdditionalEmail(email=email, creation_date=datetime.now(), token = token, active = False, user_id = user.id).save()
+
+                if attr == 'webhook' and destination.get('enabled'):
+                    existing_webhooks = Webhook.find_all_by_user_id(user.id)
+                    for webhook in existing_webhooks:
+                        if len(list(filter(lambda item: item.get('id') == webhook.id, destination.get('additional')))) == 0:
+                            webhook.delete()
+
+                    for webhook in destination.get('additional'):
+                        if webhook and not webhook.get('id'):
+                            Webhook(webhook_user_id=user.id,target_url=webhook.get('url'),url_secret=webhook.get('secret'),active=True).save()
 
             # Update emails -> Delete removed, add new as pending, change to pending to updated
             # Update phones ->Delete removed, add new as pending, change to pending to updated
