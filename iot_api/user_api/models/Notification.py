@@ -11,6 +11,8 @@ class Notification(db.Model):
     alert_id = Column(BigInteger, ForeignKey("alert.id"), nullable=False)
     alert = relationship("Alert", lazy="joined")
     user_id = Column(BigInteger, ForeignKey("iot_user.id"), nullable=False)
+    notification_state = Column(String(2000),nullable=True)
+    notification_source = Column(String(200),nullable=False)
 
     def to_dict(self):
         return {
@@ -20,8 +22,9 @@ class Notification(db.Model):
             'readAt': "{}".format(self.read_at) if self.read_at else None,
             'alertId': self.alert_id,
             'alert': self.alert.to_json(),
-            'alertType': self.alert.alert_type.to_json()
-
+            'alertType': self.alert.alert_type.to_json(),
+            'notificationState': self.notification_state,
+            'notificationSource': self.notification_source
         }
 
     def save(self):
@@ -31,7 +34,7 @@ class Notification(db.Model):
     def delete(self):
         db.session.delete(self)
         db.session.commit()
-
+    
     @classmethod
     def find(cls, user_id, page = None, size = None):
         query = cls.query.filter(cls.user_id == user_id)
