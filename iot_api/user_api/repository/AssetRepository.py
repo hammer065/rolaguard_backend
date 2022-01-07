@@ -1,3 +1,5 @@
+from flask_jwt_extended.utils import get_jwt_identity
+from sqlalchemy.sql.elements import and_
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
@@ -6,7 +8,7 @@ from sqlalchemy.sql import select, expression, text
 
 from iot_api.user_api import db
 from iot_api.user_api.repository import DeviceRepository, GatewayRepository
-from iot_api.user_api.model import Device, Gateway, GatewayToDevice, DeviceSession
+from iot_api.user_api.model import Device, DeviceHiding, Gateway, GatewayHiding, GatewayToDevice, DeviceSession, User
 from iot_api.user_api.models import DataCollector, DeviceToTag, GatewayToTag, Tag
 from iot_api.user_api import Error
 
@@ -202,7 +204,7 @@ def get_with(asset_id, asset_type, organization_id=None):
 
 def list_all(organization_id, page=None, size=None,
              vendors=None, gateway_ids=None, data_collector_ids=None,
-             tag_ids=None, asset_type=None, importances=None):
+             tag_ids=None, asset_type=None, importances=None, hidden=None):
     """ List assets of an organization.
     Parameters:
         - organization_id: which organization.
@@ -217,6 +219,8 @@ def list_all(organization_id, page=None, size=None,
     Returns:
         - A dict with the list of assets.
     """
+     
+    user = User.find_by_username(get_jwt_identity())
     # Build two queries, one for devices and one for gateways
     dev_query = db.session.query(
         distinct(Device.id).label('id'),
@@ -232,12 +236,15 @@ def list_all(organization_id, page=None, size=None,
         Device.importance,
         Device.connected,
         Device.first_activity,
-        Device.last_activity
+        Device.last_activity,
+        DeviceHiding.hidden.label('hidden')
         ).select_from(Device).\
             join(DataCollector).\
             join(GatewayToDevice).\
             filter(Device.organization_id==organization_id).\
-            filter(Device.pending_first_connection==False)
+            filter(Device.pending_first_connection==False).\
+            outerjoin(DeviceHiding,and_(DeviceHiding.device_id==Device.id,DeviceHiding.user_id==user.id))
+            
     gtw_query = db.session.query(
         distinct(Gateway.id).label('id'),
         Gateway.gw_hex_id.label('hex_id'),
@@ -252,10 +259,19 @@ def list_all(organization_id, page=None, size=None,
         Gateway.importance,
         Gateway.connected,
         Gateway.first_activity,
-        Gateway.last_activity
+        Gateway.last_activity,
+        GatewayHiding.hidden.label('hidden'),
         ).select_from(Gateway).\
             join(DataCollector).\
-            filter(Gateway.organization_id == organization_id)
+            filter(Gateway.organization_id == organization_id).\
+            outerjoin(GatewayHiding,and_(GatewayHiding.gateway_id==Gateway.id,GatewayHiding.user_id==user.id))
+
+    if hidden:
+        dev_query = dev_query.filter(DeviceHiding.hidden=='True')
+        gtw_query = gtw_query.filter(GatewayHiding.hidden=='True')
+    else:
+        dev_query = dev_query.filter(or_(DeviceHiding.hidden=='False',DeviceHiding.hidden==None))
+        gtw_query = gtw_query.filter(or_(GatewayHiding.hidden=='False',GatewayHiding.hidden==None))
 
     # If filter parameters were given, add the respective where clauses to the queries
     if None in vendors:
