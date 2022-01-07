@@ -1603,24 +1603,36 @@ class DataCollectorAPI(Resource):
         if not type:
             return bad_request('Invalid data_collector_type_id')
 
-        if type.type == TTN_COLLECTOR:
-            if data.port or data.ip:
-                return bad_request('Not allowed ip and port in ttn_collector type')
-        elif type.type == TTN_V3_COLLECTOR:
-            if data.port or data.ip or data.user or data.password:
-                return bad_request('Not allowed ip, port, user or password in ttn_v3_collector type')
-        else:
-            try:
-                if not (0 < int(data.port, 10) <= 65536):
-                    return bad_request('Port invalid')
-            except Exception as exc:
-                return bad_request('Port invalid')
+        # This section is commented since now it is allowed to enter an IP and a port for TTNv3 connections
 
+        #if type.type == TTN_COLLECTOR:
+        #    if data.port or data.ip:
+        #        return bad_request('Not allowed ip and port in ttn_collector type')
+        #elif type.type == TTN_V3_COLLECTOR:
+        #    if data.port or data.ip or data.user or data.password:
+        #        return bad_request('Not allowed ip, port, user or password in ttn_v3_collector type')
+        #else:
+
+        # Check if port is valid
+
+        try:
+            if not (0 < int(data.port, 10) <= 65536):
+                return bad_request('Port invalid')
+        except Exception as exc:
+            return bad_request('Port invalid')
+
+        # Check if URL or IP are valid
+
+        if not validators.url(data.ip):
             try:
                 socket.inet_aton(data.ip)
             except socket.error:
                 if not validators.domain(data.ip):
                     return bad_request('IP invalid')
+        else:
+            try:
+                validators.url(data.ip)
+            except: return bad_request('URL invalid')
 
         if len(data.description) > 1000:
             return bad_request('Description field too long. Max is 1000 characters.')
@@ -1904,24 +1916,35 @@ class DataCollectorListAPI(Resource):
         if not type:
             return bad_request('Invalid data_collector_type_id')
 
-        if type.type == TTN_COLLECTOR:
-            if data.port or data.ip:
-                return bad_request('Not allowed ip and port in ttn_collector type')
-        elif type.type == TTN_V3_COLLECTOR:
-            if data.port or data.ip or data.user or data.password:
-                return bad_request('Not allowed ip, port, user or password in ttn_v3_collector type')
-        else:
-            try:
-                if not (0 < int(data.port, 10) <= 65536):
-                    return bad_request('Port invalid')
-            except Exception as exc:
-                return bad_request('Port invalid')
+        # This section is commented since now it is allowed to enter an IP and a port for TTNv3 connections
+        
+        #if type.type == TTN_COLLECTOR:
+        #    if data.port or data.ip:
+        #        return bad_request('Not allowed ip and port in ttn_collector type')
+        #elif type.type == TTN_V3_COLLECTOR:
+        #    if data.port or data.ip or data.user or data.password:
+        #        return bad_request('Not allowed ip, port, user or password in ttn_v3_collector type')
+        
+        # Check if port is valid
 
+        try:
+            if not (0 < int(data.port, 10) <= 65536):
+                return bad_request('Port invalid')
+        except Exception as exc:
+            return bad_request('Port invalid')
+
+        # Check if URL or IP are valid
+
+        if not validators.url(data.ip):
             try:
                 socket.inet_aton(data.ip)
             except socket.error:
                 if not validators.domain(data.ip):
                     return bad_request('IP invalid')
+        else:
+            try:
+                validators.url(data.ip)
+            except: return bad_request('URL invalid')
 
         if len(data.description) > 1000:
             return bad_request('Description field too long. Max is 1000 characters.')
@@ -2138,24 +2161,36 @@ class DataCollectorTestAPI(Resource):
         if not type:
             return bad_request('Invalid data_collector_type_id')
 
-        if type.type == TTN_COLLECTOR:
-            if data.port or data.ip:
-                return bad_request('Not allowed ip and port in ttn_collector type')
-        elif type.type == TTN_V3_COLLECTOR:
-            if data.port or data.ip or data.user or data.password:
-                return bad_request('Not allowed ip, port, user or password in ttn_v3_collector type')
-        else:
-            try:
-                if not (0 < int(data.port, 10) <= 65536):
-                    return bad_request('Port invalid')
-            except Exception as exc:
-                return bad_request('Port invalid')
+        # This section is commented since now it is allowed to enter an IP and a port for TTNv3 connections
 
+        #if type.type == TTN_COLLECTOR:
+        #    if data.port or data.ip:
+        #        return bad_request('Not allowed ip and port in ttn_collector type')
+        #elif type.type == TTN_V3_COLLECTOR:
+        #    if data.port or data.ip or data.user or data.password:
+        #        return bad_request('Not allowed ip, port, user or password in ttn_v3_collector type')
+        #else:
+        
+        # Check if port is valid
+
+        try:
+            if not (0 < int(data.port, 10) <= 65536):
+                return bad_request('Port invalid')
+        except Exception as exc:
+            return bad_request('Port invalid')
+
+        # Check if URL or IP are valid 
+
+        if not validators.url(data.ip):
             try:
                 socket.inet_aton(data.ip)
             except socket.error:
                 if not validators.domain(data.ip):
                     return bad_request('IP invalid')
+        else:
+            try:
+                validators.url(data.ip)
+            except: return bad_request('URL invalid')
 
         if len(data.description) > 1000:
             return bad_request('Description field too long. Max is 1000 characters.')
