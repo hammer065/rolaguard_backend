@@ -154,6 +154,9 @@ api.add_resource(res.AssetsPerImportanceCountAPI, '/api/v1.0/inventory/count/imp
 # Asset importance
 api.add_resource(res.AssetImportanceAPI, '/api/v1.0/inventory/set_importance')
 
+# Asset hiding
+api.add_resource(res.AssetHidingAPI, '/api/v1.0/inventory/set_hiding')
+
 # Tags
 api.add_resource(res.TagListAPI, '/api/v1.0/tags')
 api.add_resource(res.TagAPI, '/api/v1.0/tags/<int:tag_id>')
