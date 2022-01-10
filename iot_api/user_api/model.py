@@ -1368,9 +1368,8 @@ class Webhook(db.Model):
         }
 class GatewayHiding(db.Model):
     __tablename__ = "gateway_hiding"
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    user_id = Column(BigInteger,ForeignKey("iot_user.id"), nullable=False)
-    gateway_id = Column(BigInteger, ForeignKey("gateway.id"), nullable=False)
+    user_id = Column(BigInteger,ForeignKey("iot_user.id"), nullable=False, primary_key=True)
+    gateway_id = Column(BigInteger, ForeignKey("gateway.id"), nullable=False, primary_key=True)
     hidden = Column(Boolean, nullable=False)
 
     def save(self):
@@ -1382,9 +1381,8 @@ class GatewayHiding(db.Model):
 
 class DeviceHiding(db.Model):
     __tablename__ = "device_hiding"
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    user_id = Column(BigInteger,ForeignKey("iot_user.id"), nullable=False)
-    device_id = Column(BigInteger, ForeignKey("device.id"), nullable=False)
+    user_id = Column(BigInteger,ForeignKey("iot_user.id"), nullable=False, primary_key=True)
+    device_id = Column(BigInteger, ForeignKey("device.id"), nullable=False, primary_key=True)
     hidden = Column(Boolean, nullable=False)
 
     def save(self):
