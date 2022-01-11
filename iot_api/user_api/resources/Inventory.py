@@ -417,7 +417,8 @@ class AssetsPerVendorCountAPI(Resource):
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
             asset_type = request.args.get('asset_type', default=None, type=str),
-            importances = request.args.getlist('importances[]', type=AssetImportance)
+            importances = request.args.getlist('importances[]', type=AssetImportance),
+            hidden = request.args.get('hidden', type=str) == 'true'
         )
         return response, 200
 
@@ -444,7 +445,8 @@ class AssetsPerGatewayCountAPI(Resource):
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
             asset_type = request.args.get('asset_type', default=None, type=str),
-            importances = request.args.getlist('importances[]', type=AssetImportance)
+            importances = request.args.getlist('importances[]', type=AssetImportance),
+            hidden = request.args.get('hidden',type=str)=='true'
         )
         return response, 200
             
@@ -472,7 +474,8 @@ class AssetsPerDatacollectorCountAPI(Resource):
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
             asset_type = request.args.get('asset_type', default=None, type=str),
-            importances = request.args.getlist('importances[]', type=AssetImportance)
+            importances = request.args.getlist('importances[]', type=AssetImportance),
+            hidden = request.args.get('hidden',type=str) == 'true'
         )
         return response, 200
 
@@ -500,7 +503,8 @@ class AssetsPerTagCountAPI(Resource):
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
             asset_type = request.args.get('asset_type', default=None, type=str),
-            importances = request.args.getlist('importances[]', type=AssetImportance)
+            importances = request.args.getlist('importances[]', type=AssetImportance),
+            hidden = request.args.get('hidden', type=str)=='true'
         )
         response = [
             {
@@ -534,6 +538,7 @@ class AssetsPerImportanceCountAPI(Resource):
         tag_ids = request.args.getlist('tag_ids[]')
         asset_type = request.args.get('asset_type', default=None, type=str)
         importances = request.args.getlist('importances[]', type=AssetImportance)
+        hidden = request.args.get('hidden', type=str) == 'true'
 
         response = AssetRepository.count_per_importance(
             organization_id=organization_id,
@@ -542,7 +547,8 @@ class AssetsPerImportanceCountAPI(Resource):
             data_collector_ids=data_collector_ids,
             tag_ids=tag_ids,
             asset_type=asset_type,
-            importances=importances
+            importances=importances,
+            hidden=hidden
         )
 
         return response, 200
