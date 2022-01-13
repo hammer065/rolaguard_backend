@@ -38,7 +38,7 @@ class AssetHidingAPI(Resource):
                 asset_hiding = GatewayHiding.find(gateway_id=int(asset_id["asset_id"]),user_id=user.id)
                 if not asset_hiding:
                     asset_hiding = GatewayHiding(user_id=user.id,gateway_id=int(asset_id['asset_id']))
-            asset_hiding.hidden = hidden == 'True' if True else  False
+            asset_hiding.hidden = hidden == 'True' 
             asset_hiding.save()
         db.session.commit()
         return {"message": "Assets hiding set"}, 200
