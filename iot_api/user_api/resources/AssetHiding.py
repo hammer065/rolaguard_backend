@@ -26,18 +26,18 @@ class AssetHidingAPI(Resource):
         asset_list = args["asset_list"]
         hidden = args["hidden"]
 
-        for asset_id in asset_list:
-            asset_id = json.loads(asset_id.replace("\'", "\""))    
+        for asset in asset_list:
+            asset = json.loads(asset.replace("\'", "\""))    
             
             asset_hiding = None
-            if(str(asset_id["asset_type"])=='device'):
-                asset_hiding = DeviceHiding.find(device_id=int(asset_id["asset_id"]),user_id=user.id)
+            if(str(asset["asset_type"])=='device'):
+                asset_hiding = DeviceHiding.find(device_id=int(asset["asset_id"]),user_id=user.id)
                 if not asset_hiding:
-                    asset_hiding = DeviceHiding(device_id=int(asset_id['asset_id']),user_id=user.id)
+                    asset_hiding = DeviceHiding(device_id=int(asset['asset_id']),user_id=user.id)
             else:
-                asset_hiding = GatewayHiding.find(gateway_id=int(asset_id["asset_id"]),user_id=user.id)
+                asset_hiding = GatewayHiding.find(gateway_id=int(asset["asset_id"]),user_id=user.id)
                 if not asset_hiding:
-                    asset_hiding = GatewayHiding(user_id=user.id,gateway_id=int(asset_id['asset_id']))
+                    asset_hiding = GatewayHiding(user_id=user.id,gateway_id=int(asset['asset_id']))
             asset_hiding.hidden = hidden == 'True' 
             asset_hiding.save()
         db.session.commit()
