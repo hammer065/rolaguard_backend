@@ -1,3 +1,5 @@
+from flask_jwt_extended.utils import get_jwt_identity
+from sqlalchemy.sql.elements import and_
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
@@ -6,7 +8,7 @@ from sqlalchemy.sql import select, expression, text
 
 from iot_api.user_api import db
 from iot_api.user_api.repository import DeviceRepository, GatewayRepository
-from iot_api.user_api.model import Device, Gateway, GatewayToDevice, DeviceSession
+from iot_api.user_api.model import Device, DeviceHiding, Gateway, GatewayHiding, GatewayToDevice, DeviceSession, User
 from iot_api.user_api.models import DataCollector, DeviceToTag, GatewayToTag, Tag
 from iot_api.user_api import Error
 
@@ -202,7 +204,7 @@ def get_with(asset_id, asset_type, organization_id=None):
 
 def list_all(organization_id, page=None, size=None,
              vendors=None, gateway_ids=None, data_collector_ids=None,
-             tag_ids=None, asset_type=None, importances=None):
+             tag_ids=None, asset_type=None, importances=None, hidden=None):
     """ List assets of an organization.
     Parameters:
         - organization_id: which organization.
@@ -217,6 +219,8 @@ def list_all(organization_id, page=None, size=None,
     Returns:
         - A dict with the list of assets.
     """
+     
+    user = User.find_by_username(get_jwt_identity())
     # Build two queries, one for devices and one for gateways
     dev_query = db.session.query(
         distinct(Device.id).label('id'),
@@ -232,12 +236,16 @@ def list_all(organization_id, page=None, size=None,
         Device.importance,
         Device.connected,
         Device.first_activity,
-        Device.last_activity
+        Device.last_activity,
+        DeviceHiding.hidden.label('hidden')
         ).select_from(Device).\
             join(DataCollector).\
             join(GatewayToDevice).\
             filter(Device.organization_id==organization_id).\
-            filter(Device.pending_first_connection==False)
+            filter(Device.pending_first_connection==False).\
+            outerjoin(DeviceHiding,and_(DeviceHiding.device_id==Device.id,DeviceHiding.user_id==user.id)).\
+            filter(or_(and_(not hidden,or_(DeviceHiding.hidden=='False',DeviceHiding.hidden==None)),and_(hidden, DeviceHiding.hidden=='True')))
+            
     gtw_query = db.session.query(
         distinct(Gateway.id).label('id'),
         Gateway.gw_hex_id.label('hex_id'),
@@ -252,10 +260,13 @@ def list_all(organization_id, page=None, size=None,
         Gateway.importance,
         Gateway.connected,
         Gateway.first_activity,
-        Gateway.last_activity
+        Gateway.last_activity,
+        GatewayHiding.hidden.label('hidden'),
         ).select_from(Gateway).\
             join(DataCollector).\
-            filter(Gateway.organization_id == organization_id)
+            filter(Gateway.organization_id == organization_id).\
+            outerjoin(GatewayHiding,and_(GatewayHiding.gateway_id==Gateway.id,GatewayHiding.user_id==user.id)).\
+            filter(or_(and_(not hidden,or_(GatewayHiding.hidden=='False',GatewayHiding.hidden==None)),and_(hidden, GatewayHiding.hidden=='True')))
 
     # If filter parameters were given, add the respective where clauses to the queries
     if None in vendors:
@@ -295,7 +306,8 @@ def list_all(organization_id, page=None, size=None,
 
 
 def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
-                     data_collector_ids=None, tag_ids=None, asset_type=None, importances=None):
+                     data_collector_ids=None, tag_ids=None, asset_type=None, importances=None,
+                     hidden=None):
     """ Count the number of assets per vendor.
     Parameters:
         - organization_id: which organization.
@@ -310,16 +322,21 @@ def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
         of assets.
     """
     # Build two queries, one for devices and one for gateways
+    user = User.find_by_username(get_jwt_identity())
     dev_query = db.session.query(Device.vendor, func.count(distinct(Device.id))).\
         join(GatewayToDevice).\
-        group_by(Device.vendor).\
         filter(Device.organization_id==organization_id).\
-        filter(Device.pending_first_connection==False)
+        filter(Device.pending_first_connection==False).\
+        outerjoin(DeviceHiding,and_(DeviceHiding.device_id==Device.id,DeviceHiding.user_id==user.id)).\
+        filter(or_(and_(not hidden,or_(DeviceHiding.hidden=='False',DeviceHiding.hidden==None)),and_(hidden, DeviceHiding.hidden=='True'))).\
+        group_by(Device.vendor)
 
     gtw_query = db.session.query(Gateway.vendor, func.count(distinct(Gateway.id))).\
-        group_by(Gateway.vendor).\
-        filter(Gateway.organization_id==organization_id)
-
+        filter(Gateway.organization_id==organization_id).\
+        outerjoin(GatewayHiding,and_(GatewayHiding.gateway_id==Gateway.id,GatewayHiding.user_id==user.id)).\
+        filter(or_(and_(not hidden,or_(GatewayHiding.hidden=='False',GatewayHiding.hidden==None)),and_(hidden, GatewayHiding.hidden=='True'))).\
+        group_by(Gateway.vendor)
+    
     # If the filtering arguments are given, add the respective where clauses to the queries
     if None in vendors:
         dev_query = dev_query.filter(or_(Device.vendor.in_(vendors), Device.vendor.is_(None)))
@@ -358,7 +375,8 @@ def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
 
 
 def count_per_gateway(organization_id, vendors=None, gateway_ids=None,
-                      data_collector_ids=None, tag_ids=None, asset_type=None, importances=None):
+                      data_collector_ids=None, tag_ids=None, asset_type=None, importances=None,
+                      hidden=None):
     """ Count the number of assets per gateway.
     Parameters:
         - organization_id: which organization.
@@ -373,18 +391,23 @@ def count_per_gateway(organization_id, vendors=None, gateway_ids=None,
         of assets.
     """
     # Query to count the number of devices per gateway
+    user = User.find_by_username(get_jwt_identity())
     dev_query = db.session.query(Gateway.id, Gateway.gw_hex_id, func.count(distinct(Device.id)).label("count")).\
         select_from(Gateway).\
         join(GatewayToDevice).\
         join(Device).\
-        group_by(Gateway.id, Gateway.gw_hex_id).\
         filter(Gateway.organization_id==organization_id).\
-        filter(Device.pending_first_connection==False)
+        filter(Device.pending_first_connection==False).\
+        outerjoin(DeviceHiding,and_(DeviceHiding.device_id==Device.id,DeviceHiding.user_id==user.id)).\
+        filter(or_(and_(not hidden,or_(DeviceHiding.hidden=='False',DeviceHiding.hidden==None)),and_(hidden, DeviceHiding.hidden=='True'))).\
+        group_by(Gateway.id, Gateway.gw_hex_id)
 
     # The number of gateway grouped by gateway is simply 1
     gtw_query = db.session.query(Gateway.id, Gateway.gw_hex_id, expression.literal_column("1").label("count")).\
-        filter(Gateway.organization_id==organization_id)
-    
+        filter(Gateway.organization_id==organization_id).\
+        outerjoin(GatewayHiding,and_(GatewayHiding.gateway_id==Gateway.id,GatewayHiding.user_id==user.id)).\
+        filter(or_(and_(not hidden,or_(GatewayHiding.hidden=='False',GatewayHiding.hidden==None)),and_(hidden, GatewayHiding.hidden=='True')))
+
     # If the arguments are given, filter adding the respective where clause
     if None in vendors:
         dev_query = dev_query.filter(or_(Device.vendor.in_(vendors), Device.vendor.is_(None)))
@@ -424,7 +447,8 @@ def count_per_gateway(organization_id, vendors=None, gateway_ids=None,
 
 
 def count_per_datacollector(organization_id, vendors=None, gateway_ids=None,
-                            data_collector_ids=None, tag_ids=None, asset_type=None, importances=None):
+                            data_collector_ids=None, tag_ids=None, asset_type=None, importances=None,
+                            hidden=None):
     """ Count the number of assets per data collector.
     Parameters:
         - organization_id: which organization.
@@ -439,19 +463,24 @@ def count_per_datacollector(organization_id, vendors=None, gateway_ids=None,
         of assets.
     """
     # Base queries, one for devices and one for gateways
+    user = User.find_by_username(get_jwt_identity())
     dev_query = db.session.query(DataCollector.id, DataCollector.name, func.count(distinct(Device.id))).\
         select_from(Device).\
         join(DataCollector).\
         join(GatewayToDevice).\
         group_by(DataCollector.id, DataCollector.name).\
         filter(DataCollector.organization_id == organization_id).\
-        filter(Device.pending_first_connection==False)
+        filter(Device.pending_first_connection==False).\
+        outerjoin(DeviceHiding,and_(DeviceHiding.device_id==Device.id,DeviceHiding.user_id==user.id)).\
+        filter(or_(and_(not hidden,or_(DeviceHiding.hidden=='False',DeviceHiding.hidden==None)),and_(hidden, DeviceHiding.hidden=='True')))
 
     gtw_query = db.session.query(DataCollector.id, DataCollector.name, func.count(distinct(Gateway.id))).\
         select_from(Gateway).\
         join(DataCollector).\
         group_by(DataCollector.id, DataCollector.name).\
-        filter(DataCollector.organization_id==organization_id)
+        filter(DataCollector.organization_id==organization_id).\
+        outerjoin(GatewayHiding,and_(GatewayHiding.gateway_id==Gateway.id,GatewayHiding.user_id==user.id)).\
+        filter(or_(and_(not hidden,or_(GatewayHiding.hidden=='False',GatewayHiding.hidden==None)),and_(hidden, GatewayHiding.hidden=='True')))
 
     # If filtering parameters are given, add the respective where clauses to the queries
     if None in vendors:
@@ -492,7 +521,8 @@ def count_per_datacollector(organization_id, vendors=None, gateway_ids=None,
 
 
 def count_per_tag(organization_id, vendors=None, gateway_ids=None,
-                  data_collector_ids=None, tag_ids=None, asset_type=None, importances=None):
+                  data_collector_ids=None, tag_ids=None, asset_type=None, importances=None,
+                  hidden=None):
     """ Count the number of assets per tag.
     Parameters:
         - organization_id: which organization.
@@ -507,18 +537,23 @@ def count_per_tag(organization_id, vendors=None, gateway_ids=None,
         of assets.
     """
     # Base queries, one for devices and one for gateways
+    user = User.find_by_username(get_jwt_identity())
     dev_query = db.session.query(Tag.id, Tag.name, Tag.color, func.count(distinct(Device.id))).\
         select_from(Device).\
         join(DeviceToTag).join(Tag).\
         group_by(Tag.id, Tag.name, Tag.color).\
         filter(Device.organization_id == organization_id).\
-        filter(Device.pending_first_connection==False)
+        filter(Device.pending_first_connection==False).\
+        outerjoin(DeviceHiding,and_(DeviceHiding.device_id==Device.id,DeviceHiding.user_id==user.id)).\
+        filter(or_(and_(not hidden,or_(DeviceHiding.hidden=='False',DeviceHiding.hidden==None)),and_(hidden, DeviceHiding.hidden=='True')))
 
     gtw_query = db.session.query(Tag.id, Tag.name, Tag.color, func.count(distinct(Gateway.id))).\
         select_from(Gateway).\
         join(GatewayToTag).join(Tag).\
         group_by(Tag.id, Tag.name, Tag.color).\
-        filter(Gateway.organization_id==organization_id)
+        filter(Gateway.organization_id==organization_id).\
+        outerjoin(GatewayHiding,and_(GatewayHiding.gateway_id==Gateway.id,GatewayHiding.user_id==user.id)).\
+        filter(or_(and_(not hidden,or_(GatewayHiding.hidden=='False',GatewayHiding.hidden==None)),and_(hidden, GatewayHiding.hidden=='True')))
 
     # If filtering parameters are given, add the respective where clauses to the queries
     if None in vendors:
@@ -560,7 +595,8 @@ def count_per_tag(organization_id, vendors=None, gateway_ids=None,
     return counts
 
 def count_per_importance(organization_id, vendors=None, gateway_ids=None,
-                        data_collector_ids=None, tag_ids=None, asset_type=None, importances=None):
+                        data_collector_ids=None, tag_ids=None, asset_type=None, importances=None,
+                        hidden=None):
     """ Count the number of assets per importance.
     Parameters:
         - organization_id: which organization.
@@ -574,15 +610,20 @@ def count_per_importance(organization_id, vendors=None, gateway_ids=None,
         - A list of dicts, where each dict has three fields: id, name, count.
     """
     # Build two queries, one for devices and one for gateways
+    user = User.find_by_username(get_jwt_identity())
     dev_query = db.session.query(Device.importance, func.count(distinct(Device.id))).\
         join(GatewayToDevice).\
-        group_by(Device.importance).\
         filter(Device.organization_id==organization_id).\
-        filter(Device.pending_first_connection==False)
-
+        filter(Device.pending_first_connection==False).\
+        outerjoin(DeviceHiding,and_(DeviceHiding.device_id==Device.id,DeviceHiding.user_id==user.id)).\
+        filter(or_(and_(not hidden,or_(DeviceHiding.hidden=='False',DeviceHiding.hidden==None)),and_(hidden, DeviceHiding.hidden=='True'))).\
+        group_by(Device.importance)
+    
     gtw_query = db.session.query(Gateway.importance, func.count(distinct(Gateway.id))).\
-        group_by(Gateway.importance).\
-        filter(Gateway.organization_id==organization_id)
+        filter(Gateway.organization_id==organization_id).\
+        outerjoin(GatewayHiding,and_(GatewayHiding.gateway_id==Gateway.id,GatewayHiding.user_id==user.id)).\
+        filter(or_(and_(not hidden,or_(GatewayHiding.hidden=='False',GatewayHiding.hidden==None)),and_(hidden, GatewayHiding.hidden=='True'))).\
+        group_by(Gateway.importance)
 
     # If filter arguments were given, add the respective where clauses to the queries
     if None in vendors:

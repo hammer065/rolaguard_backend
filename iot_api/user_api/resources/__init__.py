@@ -26,6 +26,7 @@ from .NotificationPreferences import (
     NotificationPhoneActivationAPI
     )
 from .AssetImportance import AssetImportanceAPI
+from .AssetHiding import AssetHidingAPI
 from .data_collector import DataCollectorActivityResource
 from .data_collector_log_event import DataCollectorLogEventListResource
 from .policy import (

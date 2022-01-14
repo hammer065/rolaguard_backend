@@ -1407,3 +1407,28 @@ class Webhook(db.Model):
             'secret':self.url_secret,
             'active':self.active
         }
+class GatewayHiding(db.Model):
+    __tablename__ = "gateway_hiding"
+    user_id = Column(BigInteger,ForeignKey("iot_user.id"), nullable=False, primary_key=True)
+    gateway_id = Column(BigInteger, ForeignKey("gateway.id"), nullable=False, primary_key=True)
+    hidden = Column(Boolean, nullable=False)
+
+    def save(self):
+        db.session.add(self)
+
+    @classmethod
+    def find(cls, user_id: User.id, gateway_id: Gateway.id):
+        return cls.query.filter(cls.user_id==user_id, cls.gateway_id==gateway_id).first()
+
+class DeviceHiding(db.Model):
+    __tablename__ = "device_hiding"
+    user_id = Column(BigInteger,ForeignKey("iot_user.id"), nullable=False, primary_key=True)
+    device_id = Column(BigInteger, ForeignKey("device.id"), nullable=False, primary_key=True)
+    hidden = Column(Boolean, nullable=False)
+
+    def save(self):
+        db.session.add(self)
+
+    @classmethod
+    def find(cls, user_id: User.id, device_id: Device.id):
+        return cls.query.filter(cls.user_id==user_id, cls.device_id==device_id).first()

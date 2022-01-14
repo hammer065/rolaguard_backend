@@ -359,7 +359,8 @@ class AssetsListAPI(Resource):
             data_collector_ids=request.args.getlist('data_collector_ids[]'),
             tag_ids=request.args.getlist('tag_ids[]'),
             asset_type=request.args.get('asset_type', type=str),
-            importances = request.args.getlist('importances[]', type=AssetImportance)
+            importances = request.args.getlist('importances[]', type=AssetImportance),
+            hidden = request.args.get('hidden',type=str)=='true'
         )
 
         # Dev_addr is not returned here because is already in the used in the inventory section,
@@ -374,6 +375,7 @@ class AssetsListAPI(Resource):
             'app_name' : dev.app_name,
             'join_eui' : dev.join_eui,
             'importance' : dev.importance.value,
+            'hidden' : dev.hidden=='True',
             'connected' : dev.connected,
             'last_activity' : calendar.timegm(dev.last_activity.timetuple()) if dev.last_activity else None,
             'first_activity' : calendar.timegm(dev.first_activity.timetuple()) if dev.first_activity else None,
@@ -415,7 +417,8 @@ class AssetsPerVendorCountAPI(Resource):
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
             asset_type = request.args.get('asset_type', default=None, type=str),
-            importances = request.args.getlist('importances[]', type=AssetImportance)
+            importances = request.args.getlist('importances[]', type=AssetImportance),
+            hidden = request.args.get('hidden', type=str) == 'true'
         )
         return response, 200
 
@@ -442,7 +445,8 @@ class AssetsPerGatewayCountAPI(Resource):
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
             asset_type = request.args.get('asset_type', default=None, type=str),
-            importances = request.args.getlist('importances[]', type=AssetImportance)
+            importances = request.args.getlist('importances[]', type=AssetImportance),
+            hidden = request.args.get('hidden',type=str)=='true'
         )
         return response, 200
             
@@ -470,7 +474,8 @@ class AssetsPerDatacollectorCountAPI(Resource):
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
             asset_type = request.args.get('asset_type', default=None, type=str),
-            importances = request.args.getlist('importances[]', type=AssetImportance)
+            importances = request.args.getlist('importances[]', type=AssetImportance),
+            hidden = request.args.get('hidden',type=str) == 'true'
         )
         return response, 200
 
@@ -498,7 +503,8 @@ class AssetsPerTagCountAPI(Resource):
             data_collector_ids = request.args.getlist('data_collector_ids[]'),
             tag_ids = request.args.getlist('tag_ids[]'),
             asset_type = request.args.get('asset_type', default=None, type=str),
-            importances = request.args.getlist('importances[]', type=AssetImportance)
+            importances = request.args.getlist('importances[]', type=AssetImportance),
+            hidden = request.args.get('hidden', type=str)=='true'
         )
         response = [
             {
@@ -532,6 +538,7 @@ class AssetsPerImportanceCountAPI(Resource):
         tag_ids = request.args.getlist('tag_ids[]')
         asset_type = request.args.get('asset_type', default=None, type=str)
         importances = request.args.getlist('importances[]', type=AssetImportance)
+        hidden = request.args.get('hidden', type=str) == 'true'
 
         response = AssetRepository.count_per_importance(
             organization_id=organization_id,
@@ -540,7 +547,8 @@ class AssetsPerImportanceCountAPI(Resource):
             data_collector_ids=data_collector_ids,
             tag_ids=tag_ids,
             asset_type=asset_type,
-            importances=importances
+            importances=importances,
+            hidden=hidden
         )
 
         return response, 200
