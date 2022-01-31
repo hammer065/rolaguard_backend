@@ -5,6 +5,7 @@ import json
 import os
 import re
 import smtplib
+from iot_api.user_api.models.DataCollectorGateway import DataCollectorGateway
 import socket
 import uuid
 import validators
@@ -80,6 +81,7 @@ data_collector_parser.add_argument("gateway_name", help="Missing gateway_name at
 data_collector_parser.add_argument("gateway_api_key", help="Missing gateway_api_key attribute", required=False)
 data_collector_parser.add_argument("region_id", help="Missing region_id attribute", required=False)
 data_collector_parser.add_argument("topics", help="Missing topics attribute", required=False, action="append")
+data_collector_parser.add_argument("custom_ip", required=False)
 
 register_parser = reqparse.RequestParser()
 register_parser.add_argument("username", help="Missing username attribute.", required=True)
@@ -1905,7 +1907,7 @@ class DataCollectorListAPI(Resource):
         data = data_collector_parser.parse_args()
         organization_id = user.organization_id
         gateway_id = data.gateway_id
-
+        custom_ip = data.custom_ip == 'true'
         type_id = data.data_collector_type_id
 
         if not type_id:
@@ -1925,26 +1927,30 @@ class DataCollectorListAPI(Resource):
         #    if data.port or data.ip or data.user or data.password:
         #        return bad_request('Not allowed ip, port, user or password in ttn_v3_collector type')
         
-        # Check if port is valid
+        
 
-        try:
-            if not (0 < int(data.port, 10) <= 65536):
+        if not (type.type == TTN_V3_COLLECTOR and not custom_ip):
+            
+            # Check if port is valid
+            
+            try:
+                if not (0 < int(data.port, 10) <= 65536):
+                    return bad_request('Port invalid')
+            except Exception as exc:
                 return bad_request('Port invalid')
-        except Exception as exc:
-            return bad_request('Port invalid')
 
-        # Check if URL or IP are valid
+            # Check if URL or IP are valid
 
-        if not validators.url(data.ip):
-            try:
-                socket.inet_aton(data.ip)
-            except socket.error:
-                if not validators.domain(data.ip):
-                    return bad_request('IP invalid')
-        else:
-            try:
-                validators.url(data.ip)
-            except: return bad_request('URL invalid')
+            if not validators.url(data.ip):
+                try:
+                    socket.inet_aton(data.ip)
+                except socket.error:
+                    if not validators.domain(data.ip):
+                        return bad_request('IP invalid')
+            else:
+                try:
+                    validators.url(data.ip)
+                except: return bad_request('URL invalid')
 
         if len(data.description) > 1000:
             return bad_request('Description field too long. Max is 1000 characters.')
@@ -1969,6 +1975,12 @@ class DataCollectorListAPI(Resource):
             uncryptedApiKey = bytes(data.gateway_api_key, 'utf-8')
             cryptedApiKey = cipher_suite.encrypt(uncryptedApiKey).decode('utf8')
         try:
+            gateways_list = []
+            if type.type == TTN_V3_COLLECTOR:
+                gateway_ids = [gtw.strip() for gtw in data.gateway_id.split(",")]
+                gateway_names = [gtw.strip() for gtw in data.gateway_name.split(",")]
+                gateways_list = [DataCollectorGateway(gateway_id=gateway_ids[i],gateway_name=gateway_names[i]) for i in range(0,len(gateway_ids))]
+
             new_data_collector = DataCollector(
                 name=data.name,
                 type=type,
@@ -1989,7 +2001,8 @@ class DataCollectorListAPI(Resource):
                 gateway_name=data.gateway_name,
                 gateway_api_key=cryptedApiKey,
                 region_id=data.region_id,
-                status=DataCollectorStatus.DISCONNECTED
+                status=DataCollectorStatus.DISCONNECTED,
+                gateways_list=gateways_list
             )
             try:
                 new_data_collector.save_to_db()
@@ -2173,24 +2186,30 @@ class DataCollectorTestAPI(Resource):
         
         # Check if port is valid
 
+        
         try:
-            if not (0 < int(data.port, 10) <= 65536):
+            if data.port and not (0 < int(data.port, 10) <= 65536):
                 return bad_request('Port invalid')
         except Exception as exc:
+            LOG.error(exc)
             return bad_request('Port invalid')
+        
 
         # Check if URL or IP are valid 
 
+        
         if not validators.url(data.ip):
             try:
                 socket.inet_aton(data.ip)
             except socket.error:
+                LOG.error(socket.error)
                 if not validators.domain(data.ip):
                     return bad_request('IP invalid')
         else:
             try:
                 validators.url(data.ip)
-            except: return bad_request('URL invalid')
+            except: 
+                return bad_request('URL invalid')
 
         if len(data.description) > 1000:
             return bad_request('Description field too long. Max is 1000 characters.')
@@ -2329,7 +2348,7 @@ class DataCollectorTTNAccount(Resource):
         access_token = data_access.json().get('access_token')
         res = ses.get('https://console.thethingsnetwork.org/api/gateways', headers={'Authorization': 'Bearer {}'.format(access_token)}, timeout=30)
 
-        session['user_gateways'] = [{"id":gateway.get('id'), "description":gateway.get('attributes').get('description')} for gateway in res.json()]
+        session['ttn_v2_user_gateways'] = [{"id":gateway.get('id'), "description":gateway.get('attributes').get('description')} for gateway in res.json()]
 
         return jsonify({"message": "Credentials processed successfully"})
 
@@ -2342,13 +2361,51 @@ class DataCollectorUserGateways(Resource):
         if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
             return forbidden()
 
-        user_gateways = session.get('user_gateways')
+        user_gateways = session.get('ttn_v2_user_gateways')
 
         if not user_gateways:
             return not_found()
 
         return user_gateways
 
+class DataCollectorTTN3Gateways(Resource):
+    @jwt_required
+    def get(self):
+        '''
+        This function retrieves all the gateways that can be accessed by the api_key and region_id provided.
+        '''
+        user_identity = get_jwt_identity()
+        user = User.find_by_username(user_identity)
+
+        if not user or not is_admin_user(user.id):
+            return forbidden()
+        
+        ttn3_credentials_parser = reqparse.RequestParser()
+        ttn3_credentials_parser.add_argument('gateway_api_key',dest='gateway_api_key',required=True)
+        ttn3_credentials_parser.add_argument('region_id',dest='region_id',required=True,type=int)
+        data = ttn3_credentials_parser.parse_args()
+        ttn3_api_key = data['gateway_api_key']
+        ttn3_region_id = data['region_id']
+
+        ses = requests.Session()
+        ses.headers['Content-type'] = 'application/json'
+            
+        url = ''
+        if ttn3_region_id == 1:
+            url = 'https://eu1.cloud.thethings.network/api/v3/gateways'
+        elif ttn3_region_id == 2:
+            url = 'https://nam1.cloud.thethings.network/api/v3/gateways'
+        elif ttn3_region_id == 3:
+            url = 'https://au1.cloud.thethings.network/api/v3/gateways'
+            
+        res = ses.get(url, headers={'Authorization': 'Bearer {}'.format(ttn3_api_key)}, timeout=30)
+
+        gateways_list = []
+        gateways = res.json()['gateways']
+        for gtw in gateways:
+            gateways_list.append({"id":gtw['ids']['gateway_id'], "eui": gtw['ids']['eui']})
+
+        return gateways_list
 
 class DataCollectorTTNRegionsAPI(Resource):
 
@@ -2363,60 +2420,6 @@ class DataCollectorTTNRegionsAPI(Resource):
         regions = TTNRegion.find_all()
 
         return list(map(lambda region: region.to_json(), regions))
-
-
-class DataCollectorTTNAccount(Resource):
-    @jwt_required
-    def post(self):
-        user_identity = get_jwt_identity()
-        user = User.find_by_username(user_identity)
-
-        if not user or not is_admin_user(user.id):
-            return forbidden()
-
-        data = ttn_credentials_parser.parse_args()
-        ttn_user = data["username"]
-        ttn_password = data["password"]
-
-        if not ttn_user or not ttn_password:
-            return bad_request("TTN credentials not provided")
-
-        ses = requests.Session()
-        ses.headers['Content-type'] = 'application/json'
-        res = ses.post('https://account.thethingsnetwork.org/api/v2/users/login', data=json.dumps({"username": ttn_user, "password": ttn_password}))
-        ses.get('https://console.thethingsnetwork.org/login')
-
-        if res.status_code != 200:
-            return internal("Login failed with provided credentials")
-
-        data_access = ses.get('https://console.thethingsnetwork.org/refresh', timeout=30)
-
-        if data_access.status_code != 200:
-            return internal("couldn't get TTN access data")
-
-        access_token = data_access.json().get('access_token')
-        res = ses.get('https://console.thethingsnetwork.org/api/gateways', headers={'Authorization': 'Bearer {}'.format(access_token)}, timeout=30)
-
-        session['user_gateways'] = [{"id":gateway.get('id'), "description":gateway.get('attributes').get('description')} for gateway in res.json()]
-
-        return jsonify({"message": "Credentials processed successfully"})
-
-class DataCollectorUserGateways(Resource):
-    @jwt_required
-    def get(self):
-        user_identity = get_jwt_identity()
-        user = User.find_by_username(user_identity)
-
-        if not user or not is_admin_user(user.id) and not is_regular_user(user.id):
-            return forbidden()
-
-        user_gateways = session.get('user_gateways')
-
-        if not user_gateways:
-            return not_found()
-
-        return user_gateways
-
 
 class DevicesListAPI(Resource):
 

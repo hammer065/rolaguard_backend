@@ -89,7 +89,8 @@ api.add_resource(res.DataCollectorsCountAPI, '/api/v1.0/data_collectors/count')
 api.add_resource(res.DataCollectorActivityResource, '/api/v1.0/data_collectors/activity')
 api.add_resource(res.DataCollectorTypesAPI, '/api/v1.0/data_collector_types')
 api.add_resource(res.DataCollectorTTNRegionsAPI, '/api/v1.0/data_collectors/ttn_regions')
-api.add_resource(res.DataCollectorTTNAccount, '/api/v1.0/data_collectors/ttn_credentials')
+api.add_resource(res.DataCollectorTTNAccount, '/api/v1.0/data_collectors/ttn_v2_credentials')
+api.add_resource(res.DataCollectorTTN3Gateways, '/api/v1.0/data_collectors/ttn_v3_gateways')
 api.add_resource(res.DataCollectorUserGateways, '/api/v1.0/data_collectors/user_gateways')
 #endregion
 
