@@ -3,7 +3,7 @@ from sqlalchemy.sql.elements import and_
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
-from sqlalchemy import func, or_, distinct, cast, Float
+from sqlalchemy import desc, asc, func, or_, distinct, cast, Float
 from sqlalchemy.sql import select, expression, text
 
 from iot_api.user_api import db
@@ -204,7 +204,7 @@ def get_with(asset_id, asset_type, organization_id=None):
 
 def list_all(organization_id, page=None, size=None,
              vendors=None, gateway_ids=None, data_collector_ids=None,
-             tag_ids=None, asset_type=None, importances=None, hidden=None):
+             tag_ids=None, asset_type=None, importances=None, hidden=None, order_by=None):
     """ List assets of an organization.
     Parameters:
         - organization_id: which organization.
@@ -215,7 +215,12 @@ def list_all(organization_id, page=None, size=None,
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
-        - importances: for filtering, list only the assets that have ANY of these importances
+        - importances: for filtering, list only the assets that have ANY of these importances.
+        - hidden: for filtering, set a true or false value to hide assets.
+        - order_by: ordering criteria, list composed by:
+            order_field: database field.
+            order_direction: either ASC or DESC.
+            if is not specified, default behaviour is to order by id.
     Returns:
         - A dict with the list of assets.
     """
@@ -298,7 +303,19 @@ def list_all(organization_id, page=None, size=None,
     else:
         raise Error.BadRequest("Invalid device type parameter")
 
-    asset_query = asset_query.order_by(text('type desc, id'))
+    if not order_by or len(order_by) < 2 or order_by[1] not in ('ASC', 'DESC') or not order_by[0]:
+        order_by = None
+
+    if order_by:
+        order_field = order_by[0]
+        order_direction = order_by[1]
+        if 'ASC' == order_direction:
+            asset_query = asset_query.order_by(asc(getattr(Device, order_field)))
+        else:
+            asset_query = asset_query.order_by(desc(getattr(Device, order_field)))
+    else:
+        asset_query = asset_query.order_by(text('type desc, id')) # order by id if no order_by parameter is specified
+
     if page and size:
         return asset_query.paginate(page=page, per_page=size, error_out=False)
     else:
@@ -316,7 +333,8 @@ def count_per_vendor(organization_id, vendors=None, gateway_ids=None,
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
-        - importances: for filtering, list only the assets that have ANY of these importances
+        - importances: for filtering, list only the assets that have ANY of these importances.
+        - hidden: for filtering, set a true or false value to hide assets.
     Returns:
         - List of dicts, where each dict has the vendor id and name and the count
         of assets.
@@ -385,7 +403,8 @@ def count_per_gateway(organization_id, vendors=None, gateway_ids=None,
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
-        - importances: for filtering, list only the assets that have ANY of these importances
+        - importances: for filtering, list only the assets that have ANY of these importances.
+        - hidden: for filtering, set a true or false value to hide assets.
     Returns:
         - List of dicts, where each dict has the gateway id and name and the count
         of assets.
@@ -457,7 +476,8 @@ def count_per_datacollector(organization_id, vendors=None, gateway_ids=None,
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
-        - importances: for filtering, list only the assets that have ANY of these importances
+        - importances: for filtering, list only the assets that have ANY of these importances.
+        - hidden: for filtering, set a true or false value to hide assets.
     Returns:
         - List of dicts, where each dict has the data_collector id and name and the count
         of assets.
@@ -531,7 +551,8 @@ def count_per_tag(organization_id, vendors=None, gateway_ids=None,
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
-        - importances: for filtering, list only the assets that have ANY of these importances
+        - importances: for filtering, list only the assets that have ANY of these importances.
+        - hidden: for filtering, set a true or false value to hide assets.
     Returns:
         - List of dicts, where each dict has the tag id and name and the count
         of assets.
@@ -605,7 +626,8 @@ def count_per_importance(organization_id, vendors=None, gateway_ids=None,
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
-        - importances: for filtering, list only the assets that have ANY of these importances
+        - importances: for filtering, list only the assets that have ANY of these importances.
+        - hidden: for filtering, set a true or false value to hide assets.
     Returns:
         - A list of dicts, where each dict has three fields: id, name, count.
     """

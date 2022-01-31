@@ -2629,7 +2629,7 @@ class AlertsListAPI(Resource):
         if since and until and since > until:
             return bad_request('since value must be before to until value')
 
-        if not order_by or len(order_by) < 2 or order_by[1] not in ('ASC', 'DESC'):
+        if not order_by or len(order_by) < 2 or order_by[1] not in ('ASC', 'DESC') or not order_by[0]:
             order_by = None
 
         if page:
@@ -3137,7 +3137,7 @@ class QuarantineListAPI(Resource):
         if since and until and since > until:
             return bad_request('since value must be before or equal to until value')
 
-        if not order_by or len(order_by) < 2 or order_by[1] not in ('ASC', 'DESC'):
+        if not order_by or len(order_by) < 2 or order_by[1] not in ('ASC', 'DESC') or not order_by[0]:
             order_by = None
 
         if page:
@@ -3238,6 +3238,7 @@ class QuarantinedDevicesCountAPI(Resource):
         risks = request.args.getlist('risk[]')
         data_collectors = request.args.getlist('data_collector[]')
         group_by = request.args.get('group_by')
+        order_by = request.args.getlist('order_by[]')
 
         if since:
             try:

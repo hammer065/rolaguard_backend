@@ -1,7 +1,7 @@
 import iot_logging
 log = iot_logging.getLogger(__name__)
 
-from sqlalchemy import distinct, cast, Float, func, null, case, BigInteger
+from sqlalchemy import asc, desc, distinct, cast, Float, func, null, case, BigInteger
 from sqlalchemy.sql import select, expression, text, not_, and_
 
 from iot_api.user_api import db
@@ -111,7 +111,7 @@ def list_all(organization_id, page=None, size=None,
             asset_type=None, asset_status=None, data_collector_ids=None,
             gateway_ids=None, device_ids= None,
             min_signal_strength=None, max_signal_strength=None,
-            min_packet_loss=None, max_packet_loss=None):
+            min_packet_loss=None, max_packet_loss=None, order_by=None):
     """ List assets of an organization and their resource usage information.
     Parameters: 
         - asset_type: for filtering, count only this type of asset ("device" or "gateway").
@@ -123,6 +123,10 @@ def list_all(organization_id, page=None, size=None,
         - max_signal_strength: for filtering, count only the assets with signal strength not higher than this value (dBm)
         - min_packet_loss: for filtering, count only the assets with packet loss not lower than this value (percentage)
         - max_packet_loss: for filtering, count only the assets with packet loss not higher than this value (percentage)
+        - order_by: ordering criteria, list composed by
+            order_field: database field 
+            order_direction: either ASC or DESC
+            if is not specified, default behaviour is to order by id
     Returns:
         - Dict with the list of assets.
     """
@@ -230,7 +234,19 @@ def list_all(organization_id, page=None, size=None,
     else:
         raise Error.BadRequest("Invalid asset type parameter")
 
-    asset_query = asset_query.order_by(text('type desc, connected desc, id'))
+    if not order_by or len(order_by) < 2 or order_by[1] not in ('ASC', 'DESC') or not order_by[0]:
+        order_by = None
+
+    if order_by:
+        order_field = order_by[0]
+        order_direction = order_by[1]
+        if 'ASC' == order_direction:
+            asset_query = asset_query.order_by(asc(getattr(Device, order_field)))
+        else:
+            asset_query = asset_query.order_by(desc(getattr(Device, order_field)))
+    else:
+        asset_query = asset_query.order_by(text('type desc, connected desc, id')) # order by id if no order_by parameter is specified
+
     if page and size:
         return asset_query.paginate(page=page, per_page=size, error_out=False)
     else:

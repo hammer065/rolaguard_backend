@@ -109,7 +109,8 @@ class ResourceUsageListAPI(Resource):
         organization_id = get_jwt_claims().get('organization_id')
         page = request.args.get('page', default=1, type=int)
         size = request.args.get('size', default=20, type=int)
-        
+        order_by = request.args.getlist('order_by[]')
+
         asset_type = request.args.get('asset_type', default=None, type=str)
 
         min_signal_strength = request.args.get('min_signal_strength', default = None, type=int)
@@ -138,7 +139,8 @@ class ResourceUsageListAPI(Resource):
             min_signal_strength = min_signal_strength,
             max_signal_strength = max_signal_strength,
             min_packet_loss = min_packet_loss,
-            max_packet_loss = max_packet_loss
+            max_packet_loss = max_packet_loss,
+            order_by = order_by
         )
 
         assets = [{
@@ -165,11 +167,13 @@ class ResourceUsageListAPI(Resource):
             'payload_size':dev.payload_size,
             'ngateways_connected_to':dev.ngateways_connected_to
         } for dev in results.items]
+
         response = {
             'assets': assets,
             'total_pages': results.pages,
             'total_items': results.total
         }
+
         return response, 200
 
 def buildPacketsInfo(count, total):

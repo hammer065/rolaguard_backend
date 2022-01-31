@@ -341,7 +341,12 @@ class AssetsListAPI(Resource):
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
-        - importances[]: for filtering, list only the assets that have ANY of these importances
+        - importances[]: for filtering, list only the assets that have ANY of these importances.
+        - hidden: for filtering, set a true or false value to hide assets.
+        - order_by: ordering criteria, list composed by:
+            order_field: database field.
+            order_direction: either ASC or DESC.
+            if is not specified, default behaviour is to order by id.
     Returns:
         - JSON with list of assets (see code for more details about the fields).
     """
@@ -350,7 +355,8 @@ class AssetsListAPI(Resource):
         organization_id = get_jwt_claims().get('organization_id') 
         page = request.args.get('page', default=1, type=int)
         size = request.args.get('size', default=20, type=int)
-
+        order_by = request.args.getlist('order_by[]')
+        
         results = AssetRepository.list_all(
             organization_id=organization_id,
             page=page, size=size,
@@ -360,7 +366,8 @@ class AssetsListAPI(Resource):
             tag_ids=request.args.getlist('tag_ids[]'),
             asset_type=request.args.get('asset_type', type=str),
             importances = request.args.getlist('importances[]', type=AssetImportance),
-            hidden = request.args.get('hidden',type=str)=='true'
+            hidden = request.args.get('hidden',type=str)=='true',
+            order_by=order_by
         )
 
         # Dev_addr is not returned here because is already in the used in the inventory section,
@@ -386,11 +393,13 @@ class AssetsListAPI(Resource):
                         "color" : tag.color}
                         for tag in TagRepository.list_asset_tags(dev.id, dev.type.lower(), organization_id)]
         } for dev in results.items]
+
         response = {
             'assets' : devices,
             'total_pages': results.pages,
             'total_items': results.total
         }
+        
         return response, 200
 
 
@@ -402,7 +411,8 @@ class AssetsPerVendorCountAPI(Resource):
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
-        - importances[]: for filtering, list only the assets that have ANY of these importances
+        - importances[]: for filtering, list only the assets that have ANY of these importances.
+        - hidden: for filtering, set a true or false value to hide assets.
     Returns:
         - A list of JSONs, where each JSON has three fields: id, name, count.
     """
@@ -430,7 +440,8 @@ class AssetsPerGatewayCountAPI(Resource):
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
-        - importances[]: for filtering, list only the assets that have ANY of these importances
+        - importances[]: for filtering, list only the assets that have ANY of these importances.
+        - hidden: for filtering, set a true or false value to hide assets.
     Returns:
         - A list of JSONs, where each JSON has three fields: id, name, count.
     """
@@ -460,6 +471,7 @@ class AssetsPerDatacollectorCountAPI(Resource):
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
         - importances[]: for filtering, list only the assets that have ANY of these importances
+        - hidden: for filtering, set a true or false value to hide assets.
     Returns:
         - A list of JSONs, where each JSON has three fields: id, name, count.
     """
@@ -488,7 +500,8 @@ class AssetsPerTagCountAPI(Resource):
         - data_collector_ids[]: for filtering, list only the assest related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assest that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
-        - importances[]: for filtering, list only the assets that have ANY of these importances
+        - importances[]: for filtering, list only the assets that have ANY of these importances.
+        - hidden: for filtering, set a true or false value to hide assets.
     Returns:
         - A list of JSONs, where each JSON has three fields: id, name, count.
     """
@@ -525,7 +538,8 @@ class AssetsPerImportanceCountAPI(Resource):
         - data_collector_ids[]: for filtering, list only the assets related to ANY of these data collectors.
         - tag_ids[]: for filtering, list only the assets that have ALL these tags.
         - asset_type: for filtering, list only this type of asset ("device" or "gateway").
-        - importances[]: for filtering, list only the assets that have ANY of these importances
+        - importances[]: for filtering, list only the assets that have ANY of these importances.
+        - hidden: for filtering, set a true or false value to hide assets.
     Returns:
         - A list of JSONs, where each JSON has three fields: id, name, count.
     """

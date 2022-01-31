@@ -500,10 +500,16 @@ class Alert(db.Model):
                 query = query.filter(AlertType.code == cls.type).filter(AlertType.risk.in_(risks))
             if data_collectors and len(data_collectors) > 0:
                 query = query.filter(cls.data_collector_id.in_(data_collectors))
-            if order_by and 'ASC' in order_by:
-                query = query.order_by(asc(cls.created_at))
+
+            if order_by:
+                order_field = order_by[0]
+                order_direction = order_by[1]
+                if 'ASC' == order_direction:
+                    query = query.order_by(asc(getattr(cls, order_field)))
+                else:
+                    query = query.order_by(desc(getattr(cls, order_field)))
             else:
-                query = query.order_by(desc(cls.created_at))
+                query = query.order_by(desc(cls.created_at)) # newest first if no order_by parameter is specified
 
             if page is not None and size:
                 query = query.limit(size).offset(page*size)
