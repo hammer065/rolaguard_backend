@@ -1374,9 +1374,9 @@ class Webhook(db.Model):
         for webhook in Webhook.find_all_by_user_id(user.id):
             if webhook.active:
                 if not (webhook.target_url,webhook.url_secret) in webhooks:
-                    webhooks[(webhook.target_url,webhook.url_secret)]=[webhook]
+                    webhooks[(webhook.target_url,cipher_suite.decrypt(bytes(webhook.url_secret,'utf-8')).decode('utf-8'))]=[webhook]
                 else: 
-                    webhooks[(webhook.target_url,webhook.url_secret)].append(webhook)
+                    webhooks[(webhook.target_url,cipher_suite.decrypt(bytes(webhook.url_secret,'utf-8')).decode('utf-8'))].append(webhook)
 
     @classmethod
     def send_request(cls,alert,webhooks):

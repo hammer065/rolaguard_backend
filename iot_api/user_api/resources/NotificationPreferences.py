@@ -3,6 +3,7 @@ from flask_restful import Resource
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_mail import Message
 import boto3
+import validators
 
 import random
 import string
@@ -13,6 +14,7 @@ from threading import Thread
 from datetime import datetime, timedelta
 from urllib.parse import quote_plus
 
+from iot_api import cipher_suite
 from iot_api import bcrypt, mail, app
 from iot_api.user_api.model import User, Webhook
 #from iot_api.user_api.enums import WebUrl
@@ -179,7 +181,10 @@ class NotificationPreferencesAPI(Resource):
 
                     for webhook in destination.get('additional'):
                         if webhook and not webhook.get('id'):
-                            Webhook(webhook_user_id=user.id,target_url=webhook.get('url'),url_secret=webhook.get('secret'),active=True).save()
+                            if not validators.url(webhook.get('url')):
+                                return {'error': 'invalid url.'}, 400
+                            encrypted_url_secret = cipher_suite.encrypt(bytes(webhook.get('secret'),'utf-8')).decode('utf-8')
+                            Webhook(webhook_user_id=user.id,target_url=webhook.get('url'),url_secret=encrypted_url_secret,active=True).save()
 
             # Update emails -> Delete removed, add new as pending, change to pending to updated
             # Update phones ->Delete removed, add new as pending, change to pending to updated
