@@ -1,7 +1,8 @@
 import json
 from flask import request
-from flask_restful import Resource, reqparse
+from flask_restful import Resource
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from user_api.schemas.asset_importance_schema import AssetImportanceSchema
 
 from iot_api.user_api import db
 from iot_api.user_api.model import User
@@ -14,9 +15,6 @@ class AssetImportanceAPI(Resource):
     """
     Resource to set (POST) the importance of an asset.
     """
-    parser = reqparse.RequestParser()
-    parser.add_argument('asset_list', required=True, action='append')
-    parser.add_argument('importance', required=True)
 
     @jwt_required
     def post(self):
@@ -25,20 +23,21 @@ class AssetImportanceAPI(Resource):
             raise Error.Forbidden("User not allowed")
         organization_id = user.organization_id
 
-        args = self.parser.parse_args()
-        asset_list = args["asset_list"]
-        importance = args["importance"]
+        body = json.loads(request.data)
+        result = AssetImportanceSchema().load(body).data
 
+        importance = result.get('importance')
         if importance not in ['LOW', 'MEDIUM', 'HIGH']:
             raise Exception(f'"{importance}" is not a valid importance value')
 
-        for asset_id in asset_list:
-            asset_id = json.loads(asset_id.replace("\'", "\""))
+        for asset_data in result.get('asset_list'):
+
             asset = AssetRepository.get_with(
-                asset_id=int(asset_id["asset_id"]),
-                asset_type=asset_id["asset_type"],
+                asset_id=asset_data.get("asset_id"),
+                asset_type=asset_data.get("asset_type"),
                 organization_id=organization_id
             )
             asset.importance = importance
         db.session.commit()
+        
         return {"message": "Assets importance set"}, 200

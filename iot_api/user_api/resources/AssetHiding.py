@@ -1,7 +1,8 @@
 import json
 from flask import request
-from flask_restful import Resource, reqparse
+from flask_restful import Resource
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from user_api.schemas.asset_hiding_schema import AssetHidingSchema
 
 from iot_api.user_api import db
 from iot_api.user_api.model import DeviceHiding, GatewayHiding, User
@@ -12,9 +13,6 @@ class AssetHidingAPI(Resource):
     """
     Resource to set (POST) the hiding of an asset.
     """
-    parser = reqparse.RequestParser()
-    parser.add_argument('asset_list', required=True, action='append')
-    parser.add_argument('hidden', required=True)
 
     @jwt_required
     def post(self):
@@ -22,23 +20,22 @@ class AssetHidingAPI(Resource):
         if not user or is_system(user.id):
             raise Error.Forbidden("User not allowed")
 
-        args = self.parser.parse_args()
-        asset_list = args["asset_list"]
-        hidden = args["hidden"]
+        body = json.loads(request.data)
+        result = AssetHidingSchema().load(body).data
 
-        for asset in asset_list:
-            asset = json.loads(asset.replace("\'", "\""))    
+        hidden = result.get('hidden')
+        for asset in result.get('asset_list'):
             
             asset_hiding = None
-            if(str(asset["asset_type"])=='device'):
-                asset_hiding = DeviceHiding.find(device_id=int(asset["asset_id"]),user_id=user.id)
+            if(asset.get('asset_type')=='device'):
+                asset_hiding = DeviceHiding.find(device_id=asset.get('asset_id'),user_id=user.id)
                 if not asset_hiding:
-                    asset_hiding = DeviceHiding(device_id=int(asset['asset_id']),user_id=user.id)
+                    asset_hiding = DeviceHiding(device_id=asset.get('asset_id'),user_id=user.id)
             else:
-                asset_hiding = GatewayHiding.find(gateway_id=int(asset["asset_id"]),user_id=user.id)
+                asset_hiding = GatewayHiding.find(gateway_id=asset.get('asset_id'),user_id=user.id)
                 if not asset_hiding:
-                    asset_hiding = GatewayHiding(user_id=user.id,gateway_id=int(asset['asset_id']))
-            asset_hiding.hidden = hidden == 'True' 
+                    asset_hiding = GatewayHiding(gateway_id=asset.get('asset_id'),user_id=user.id)
+            asset_hiding.hidden = hidden 
             asset_hiding.save()
         db.session.commit()
         return {"message": "Assets hiding set"}, 200
