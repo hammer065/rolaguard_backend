@@ -1368,33 +1368,14 @@ class Register(Resource):
             raise Error.InvalidUsage("User {0} already exists".format(username_without_space))
         phone_without_space = None
 
+        # validating a phone number
+    
         if data["phone"]:
-            phone_without_space = data["phone"].strip()  # delete whitespaces in phone (leading and trailing)
-
-            phone_spaces = phone_without_space.split(" ")
-
-            if len(phone_spaces) > 1:
-                raise Error.InvalidUsage("Phone {0} is not valid".format(phone_without_space))
-
-            phone_without_prefix = ""
-            phone_prefix = ""
-
-            if len(phone_without_space.split("-"))>1:
-                phone_without_prefix = phone_without_space.split("-")[1]
-                phone_prefix = phone_without_space.split("-")[0]
-            # if len(phone_without_space) > 0 and not phone_without_space.isdigit():
-            phone_without_space_and_signs = phone_without_space.replace('+', '', 1)
-            phone_without_space_and_signs = phone_without_space_and_signs.replace('-', '', 1)
-
-            if len(phone_without_space) > 0 and (
-                    not phone_without_space.count("+") == 1 or
-                    not phone_without_space.count("-") == 1 or
-                    not phone_without_space_and_signs.isdigit() or
-                    len(phone_without_prefix) < 6 or
-                    len(phone_prefix) < 2 or
-                    phone_without_space.find("+") != 0 or
-                    len(phone_without_space) > 30):
-                raise Error.InvalidUsage("Phone {0} is not valid".format(phone_without_space))
+            phone_number = phonenumbers.parse(data["phone"]) 
+            valid = phonenumbers.is_valid_number(phone_number)
+        
+        if not valid:
+            raise Error.InvalidUsage("Phone {0} is not valid".format(phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.E164)))
 
         list_user = User.find_by_email(email_without_space)
 
@@ -1412,7 +1393,7 @@ class Register(Resource):
                 full_name=data["full_name"],
                 password="passwordArgeniss",
                 email=email_without_space,
-                phone=phone_without_space,
+                phone=data["phone"],
                 organization_id=organization_id,
                 deleted=False,
                 collectors=collectors
