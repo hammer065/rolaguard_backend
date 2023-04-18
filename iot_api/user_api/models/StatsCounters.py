@@ -59,9 +59,9 @@ class StatsCounters(db.Model):
     @classmethod
     def max_devices_by_date(cls, organization_id, since, until, data_collectors):
         sum_query = cls.group_by_hour(organization_id, since, until, data_collectors).subquery()
-        max_query = sum_query.select().with_only_columns([func.date(sum_query.c.hour).label('date'), func.max(sum_query.c.devices_count).label('max_devices')])
-        query = max_query.group_by(max_query.c.date).order_by(max_query.c.date)
-        return db.session.execute(query).fetchall()
+        max_query = db.session.query(func.date(sum_query.c.hour).label('date'), func.max(sum_query.c.devices_count).label('max_devices')).group_by(func.date(sum_query.c.hour)).subquery('max_query')
+        query = db.session.query(max_query.c.date, max_query.c.max_devices).order_by(max_query.c.date)
+        return query.all()
 
     def to_json_for_packet(self):
         return {
