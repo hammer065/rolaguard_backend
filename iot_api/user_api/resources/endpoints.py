@@ -1076,7 +1076,7 @@ class ChangeEmailRequestAPI(Resource):
                 # stmplib docs recommend calling ehlo() before & after starttls()
                 server.ehlo()
                 server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
-                server.sendmail(config.SMTP_SENDER, current_user.email, msg.as_string())
+                server.sendmail(config.SMTP_SENDER, email_without_space, msg.as_string())
                 server.close()
                 LOG.debug("finished email sending")
 
