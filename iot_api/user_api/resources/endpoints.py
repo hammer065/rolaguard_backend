@@ -1373,9 +1373,8 @@ class Register(Resource):
         if data["phone"]:
             phone_number = phonenumbers.parse(data["phone"]) 
             valid = phonenumbers.is_valid_number(phone_number)
-        
-        if not valid:
-            raise Error.InvalidUsage("Phone {0} is not valid".format(phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.E164)))
+            if not valid:
+                raise Error.InvalidUsage("Phone {0} is not valid".format(phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.E164)))    
 
         list_user = User.find_by_email(email_without_space)
 
