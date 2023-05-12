@@ -288,9 +288,8 @@ class UserInfoAPI(Resource):
         if data["phone"]:
             phone_number = phonenumbers.parse(data["phone"]) 
             valid = phonenumbers.is_valid_number(phone_number)
-        
-        if not valid:
-            return internal("Phone {0} is not valid".format(phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.E164)))
+            if not valid:
+                return internal("Phone {0} is not valid".format(phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.E164)))
 
         user_roles = data["user_roles"]
 
@@ -494,7 +493,7 @@ class ResendActivationAPI(Resource):
             full_url = config.BRAND_URL + \
                        "activation/" + str(encoded_token)
 
-            if config.SMTP_HOST and config.SEND_EMAILS:
+            if config.SEND_EMAILS and config.SMTP_HOST:
                 LOG.debug('init email sending')
                 msg = MIMEMultipart('alternative')
                 msg['Subject'] = f"{config.BRAND_NAME} Account Confirmation"
@@ -617,7 +616,7 @@ class CreatePasswordAPI(Resource):
 
                 full_url = config.BRAND_URL + "activation/" + str(encoded_token)
 
-                if config.SMTP_HOST and config.SEND_EMAILS:
+                if config.SEND_EMAILS and config.SMTP_HOST:
                     LOG.debug('init email sending')
                     msg = MIMEMultipart('alternative')
                     msg['Subject'] = f"{config.BRAND_NAME} Account Confirmation"
@@ -821,7 +820,7 @@ class PasswordRecoveryAPI(Resource):
                 full_url = config.BRAND_URL + \
                            "change_password/" + str(encoded_token)
 
-                if config.SMTP_HOST and config.SEND_EMAILS:
+                if config.SEND_EMAILS and config.SMTP_HOST:
                     LOG.debug('init email sending')
                     msg = MIMEMultipart('alternative')
                     msg['Subject'] = f"{config.BRAND_NAME} Password Recovery"
@@ -928,7 +927,7 @@ class ChangePasswordByRecoveryAPI(Resource):
                 password_reset.rollback()
                 raise exc
 
-            if config.SMTP_HOST and config.SEND_EMAILS:
+            if config.SEND_EMAILS and config.SMTP_HOST:
                 LOG.debug('init email sending')
                 msg = MIMEMultipart('alternative')
                 msg['Subject'] = f"{config.BRAND_NAME} Password Changed"
@@ -1057,7 +1056,7 @@ class ChangeEmailRequestAPI(Resource):
             full_url = config.BRAND_URL + \
                        "change_email_request/" + str(encoded_token)
 
-            if config.SMTP_HOST and config.SEND_EMAILS:
+            if config.SEND_EMAILS and config.SMTP_HOST:
                 LOG.debug('init email sending')
                 msg = MIMEMultipart('alternative')
                 msg['Subject'] = f"{config.BRAND_NAME} Change Email Request"
@@ -1206,7 +1205,7 @@ class Login(Resource):
 
                     full_url = config.BRAND_URL + "recovery"
 
-                    if config.SMTP_HOST and config.SEND_EMAILS:
+                    if config.SEND_EMAILS and config.SMTP_HOST:
                         LOG.debug('init email sending')
                         msg = MIMEMultipart('alternative')
                         msg['Subject'] = f"{config.BRAND_NAME} Account Blocked"
@@ -1410,7 +1409,7 @@ class Register(Resource):
             # If user exists and is active, then send a recovery mail
 
             if user.active:
-                if config.SMTP_HOST and config.SEND_EMAILS:
+                if config.SEND_EMAILS and config.SMTP_HOST:
 
                     full_url = config.BRAND_URL + "recovery/"
 
@@ -1457,7 +1456,7 @@ class Register(Resource):
 
         full_url = config.BRAND_URL + "activation/" + str(encoded_token)
 
-        if config.SMTP_HOST and config.SEND_EMAILS:
+        if config.SEND_EMAILS and config.SMTP_HOST:
             LOG.debug('init email sending')
             msg = MIMEMultipart('alternative')
             msg['Subject'] = f"{config.BRAND_NAME} Account Confirmation"
