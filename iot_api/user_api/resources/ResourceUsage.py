@@ -165,7 +165,8 @@ class ResourceUsageListAPI(Resource):
             'max_rssi': dev.max_rssi,
             'max_lsnr': dev.max_lsnr,
             'payload_size':dev.payload_size,
-            'ngateways_connected_to':dev.ngateways_connected_to
+            'ngateways_connected_to':dev.ngateways_connected_to,
+            'spread_factor':dev.spread_factor
         } for dev in results.items]
 
         response = {

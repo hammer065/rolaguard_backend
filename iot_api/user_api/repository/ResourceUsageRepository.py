@@ -140,6 +140,7 @@ def list_all(organization_id, page=None, size=None,
         Device.id.label('id'),
         Device.dev_eui.label('hex_id'),
         DeviceSession.dev_addr.label('dev_addr'),
+        DeviceSession.spread_factor.label('spread_factor'),
         expression.literal_column('\'Device\'').label('type'),
         Device.name,
         Device.app_name,
@@ -171,12 +172,13 @@ def list_all(organization_id, page=None, size=None,
                 DeviceCounters.counter_type.in_(dev_wanted_counters),
                 DeviceCounters.last_update + func.make_interval(0,0,0,1) > Packet.date
                 ), isouter=True).\
-            group_by(Device.id, DeviceSession.dev_addr, DataCollector.name, PolicyItem.parameters)
+            group_by(Device.id, DeviceSession.dev_addr, DeviceSession.spread_factor, DataCollector.name, PolicyItem.parameters)
 
     gtw_query = db.session.query(
         distinct(Gateway.id).label('id'),
         Gateway.gw_hex_id.label('hex_id'),
         expression.null().label('dev_addr'),
+        expression.null().label('spread_factor'),
         expression.literal_column('\'Gateway\'').label('type'),
         Gateway.name,
         expression.null().label('app_name'),
