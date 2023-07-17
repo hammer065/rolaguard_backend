@@ -895,6 +895,7 @@ class DeviceSession(db.Model):
     reset_counter = Column(Integer, nullable=False, default=0)
     is_confirmed = Column(Boolean, nullable=True)
     dev_addr = Column(String(8), nullable=False)
+    spread_factor = Column(String(8), nullable=False)
     up_link_counter = Column(Integer, nullable=False, default=-1)
     down_link_counter = Column(Integer, nullable=False, default=-1)
     max_down_counter = Column(Integer, nullable=False, default=-1)
