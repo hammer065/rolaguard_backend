@@ -287,10 +287,9 @@ class UserInfoAPI(Resource):
     
         if data["phone"]:
             phone_number = phonenumbers.parse(data["phone"]) 
-            valid = phonenumbers.is_valid_number(phone_number)
-        
-        if not valid:
-            return internal("Phone {0} is not valid".format(phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.E164)))
+            valid = phonenumbers.is_valid_number(phone_number)       
+            if not valid:
+                return internal("Phone {0} is not valid".format(phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.E164)))
 
         user_roles = data["user_roles"]
 
@@ -494,7 +493,7 @@ class ResendActivationAPI(Resource):
             full_url = config.BRAND_URL + \
                        "activation/" + str(encoded_token)
 
-            if config.SMTP_HOST and config.SEND_EMAILS:
+            if config.SEND_EMAILS and config.SMTP_HOST:
                 LOG.debug('init email sending')
                 msg = MIMEMultipart('alternative')
                 msg['Subject'] = f"{config.BRAND_NAME} Account Confirmation"
@@ -617,7 +616,7 @@ class CreatePasswordAPI(Resource):
 
                 full_url = config.BRAND_URL + "activation/" + str(encoded_token)
 
-                if config.SMTP_HOST and config.SEND_EMAILS:
+                if config.SEND_EMAILS and config.SMTP_HOST:
                     LOG.debug('init email sending')
                     msg = MIMEMultipart('alternative')
                     msg['Subject'] = f"{config.BRAND_NAME} Account Confirmation"
@@ -821,7 +820,7 @@ class PasswordRecoveryAPI(Resource):
                 full_url = config.BRAND_URL + \
                            "change_password/" + str(encoded_token)
 
-                if config.SMTP_HOST and config.SEND_EMAILS:
+                if config.SEND_EMAILS and config.SMTP_HOST:
                     LOG.debug('init email sending')
                     msg = MIMEMultipart('alternative')
                     msg['Subject'] = f"{config.BRAND_NAME} Password Recovery"
@@ -928,7 +927,7 @@ class ChangePasswordByRecoveryAPI(Resource):
                 password_reset.rollback()
                 raise exc
 
-            if config.SMTP_HOST and config.SEND_EMAILS:
+            if config.SEND_EMAILS and config.SMTP_HOST:
                 LOG.debug('init email sending')
                 msg = MIMEMultipart('alternative')
                 msg['Subject'] = f"{config.BRAND_NAME} Password Changed"
@@ -1057,7 +1056,7 @@ class ChangeEmailRequestAPI(Resource):
             full_url = config.BRAND_URL + \
                        "change_email_request/" + str(encoded_token)
 
-            if config.SMTP_HOST and config.SEND_EMAILS:
+            if config.SEND_EMAILS and config.SMTP_HOST:
                 LOG.debug('init email sending')
                 msg = MIMEMultipart('alternative')
                 msg['Subject'] = f"{config.BRAND_NAME} Change Email Request"
@@ -1206,7 +1205,7 @@ class Login(Resource):
 
                     full_url = config.BRAND_URL + "recovery"
 
-                    if config.SMTP_HOST and config.SEND_EMAILS:
+                    if config.SEND_EMAILS and config.SMTP_HOST:
                         LOG.debug('init email sending')
                         msg = MIMEMultipart('alternative')
                         msg['Subject'] = f"{config.BRAND_NAME} Account Blocked"
@@ -1327,6 +1326,11 @@ class Register(Resource):
         else:
             LOG.warning("Recaptcha was not validated because the credentials were not defined.")
 
+        if not (config.SEND_EMAILS and config.SMTP_HOST) and\
+            (not admin_user_identity or not is_admin_user(User.find_by_username(get_jwt_identity()).id)):
+            raise Error.InvalidUsage("Something went wrong trying to send activation: " + \
+                "Activation mail not sent because there is no SMTP server configured.")  
+
         user_roles = []
         organization_id = None
 
@@ -1410,7 +1414,7 @@ class Register(Resource):
             # If user exists and is active, then send a recovery mail
 
             if user.active:
-                if config.SMTP_HOST and config.SEND_EMAILS:
+                if config.SEND_EMAILS and config.SMTP_HOST:
 
                     full_url = config.BRAND_URL + "recovery/"
 
@@ -1457,7 +1461,7 @@ class Register(Resource):
 
         full_url = config.BRAND_URL + "activation/" + str(encoded_token)
 
-        if config.SMTP_HOST and config.SEND_EMAILS:
+        if config.SEND_EMAILS and config.SMTP_HOST:
             LOG.debug('init email sending')
             msg = MIMEMultipart('alternative')
             msg['Subject'] = f"{config.BRAND_NAME} Account Confirmation"
@@ -1487,10 +1491,91 @@ class Register(Resource):
             return {
                 "message": "An email was sent to the account provided"
             }
-        elif config.SEND_EMAILS:
-            raise Error.InvalidUsage("Something went wrong trying to send activation: " + \
-                "Activation mail not sent because there is no SMTP server configured.")
+        elif admin_user_identity is not None and is_admin_user(User.find_by_username(get_jwt_identity()).id):
+            try:
+                try:
+                    new_account_activation.save_to_db()
+                except Exception:
+                    new_account_activation.rollback()
+                password = "passwordArgeniss"
+                account_activation = new_account_activation
+                current_user = User.find_by_id(account_activation.user_id)
+                current_user.password = User.generate_hash(password)
+                current_user.active = True
+                try:
+                    current_user.update_to_db()
+                except Exception as exc:
+                    current_user.rollback()
+                    raise exc  
 
+                # Deactivate active tokens
+                account_activation_list = AccountActivation.find_active_tokens_by_user_id(account_activation.user_id)
+
+                for account_activation in account_activation_list:
+                    account_activation.active = False
+                    try:
+                        account_activation.update_to_db()
+                    except Exception as exc:
+                        account_activation.rollback()
+                        raise exc  
+
+                # create user role
+                user_roles = None
+
+                if account_activation.user_roles_id:
+                    user_roles = list(account_activation.user_roles_id)
+                    user_roles = list(filter(lambda x: x != ',', user_roles))
+                    user_roles = [int(x) for x in user_roles]  # roles to be added
+
+                current_user_roles = UserToUserRole.find_all_user_role_by_user_id(current_user.id)
+                current_user_roles_id = list(map(lambda x: x.user_role_id, current_user_roles))  # existing roles
+
+                if user_roles:
+                    for role_id in user_roles:
+                        role = UserRole.find_by_id(role_id)
+                        if role and role.role_name != "System" and role_id not in current_user_roles_id:
+                            new_user_to_user_role = UserToUserRole(
+                                user_id=current_user.id,
+                                user_role_id=role_id
+                            )
+                            try:
+                                new_user_to_user_role.save_to_db()
+                            except Exception as exc:
+                                new_user_to_user_role.rollback()
+                                raise exc
+                        else:
+                            print(f"Error creating User to User Role relation: User Role with id ({role}) does not exist!")
+                # Create preferences notifications
+                np = NotificationPreferences.find_one(current_user.id)
+
+                if not np:
+                    NotificationPreferences(user_id=current_user.id, sms=False, push=False, email=False, webhook=False).save()
+
+                nas = NotificationAlertSettings.find_one(current_user.id)
+
+                if not nas:
+                    NotificationAlertSettings(user_id=current_user.id, high=True, medium=True, low=True, info=True).save()
+
+                dcs = DataCollector.find_by_user(current_user).items
+
+                for dc in dcs:
+                    ndcs = NotificationDataCollectorSettings.find_one(current_user.id, dc.id)
+
+                    if not ndcs:
+                        NotificationDataCollectorSettings(data_collector_id=dc.id, user_id=current_user.id,
+                                                        enabled=True).save()
+
+                nd = NotificationData.find_one(current_user.id)
+
+                if not nd:
+                    NotificationData(user_id=current_user.id, last_read=datetime.datetime.now()).save()
+
+                return jsonify({"message": "User Created Successfully. The password is \"passwordArgeniss\". Please enter rolaguard and change it for security reasons"})
+            
+            except Exception as exc:
+                LOG.error("Something went wrong trying to create the user: {0}".format(exc))
+
+                return internal("Something went wrong trying to create the user")
 
 
 class TokenRefresh(Resource):
