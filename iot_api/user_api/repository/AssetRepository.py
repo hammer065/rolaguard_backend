@@ -310,9 +310,15 @@ def list_all(organization_id, page=None, size=None,
         order_field = order_by[0]
         order_direction = order_by[1]
         if 'ASC' == order_direction:
-            asset_query = asset_query.order_by(asc(getattr(Device, order_field)))
+            if asset_type == "gateway":
+                asset_query = asset_query.order_by(asc(getattr(Gateway, order_field)))
+            else:
+                asset_query = asset_query.order_by(asc(getattr(Device, order_field)))
         else:
-            asset_query = asset_query.order_by(desc(getattr(Device, order_field)))
+            if asset_type == "gateway":
+                asset_query = asset_query.order_by(desc(getattr(Gateway, order_field)))
+            else:
+                asset_query = asset_query.order_by(desc(getattr(Device, order_field)))
     else:
         asset_query = asset_query.order_by(text('type desc, id')) # order by id if no order_by parameter is specified
 
