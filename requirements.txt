@@ -22,7 +22,7 @@ cryptography
 marshmallow==2.19.5
 boto3
 gunicorn
-eventlet==0.30.2
+eventlet==0.35.2
 kombu
 py3DNS
 flask_socketio<5  # flask_socketio 5 is incompatible with the frontend js library in use
