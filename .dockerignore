@@ -11,6 +11,8 @@ Dockerfile_local
 env_template
 rabbitDrain.py
 rabbitPublish.py
+LICENSE
+.github
 
 
 
