@@ -46,6 +46,7 @@ from iot_api.user_api.models.NotificationDataCollectorSettings import Notificati
 from iot_api.user_api.models.NotificationPreferences import NotificationPreferences
 from iot_api.user_api.models.Policy import Policy
 from iot_api.user_api.model import Quarantine
+from iot_api.user_api.Utils import validators_hostname
 
 from urllib.parse import urlencode
 from urllib.request import urlopen
@@ -1694,7 +1695,7 @@ class DataCollectorAPI(Resource):
             try:
                 socket.inet_aton(data.ip)
             except socket.error:
-                if not validators.domain(data.ip):
+                if not validators_hostname(data.ip):
                     return bad_request('IP invalid')
         else:
             try:
@@ -2010,7 +2011,7 @@ class DataCollectorListAPI(Resource):
                 try:
                     socket.inet_aton(data.ip)
                 except socket.error:
-                    if not validators.domain(data.ip):
+                    if not validators_hostname(data.ip):
                         return bad_request('IP invalid')
             else:
                 try:
@@ -2268,7 +2269,7 @@ class DataCollectorTestAPI(Resource):
                 socket.inet_aton(data.ip)
             except socket.error:
                 LOG.error(socket.error)
-                if not validators.domain(data.ip):
+                if not validators_hostname(data.ip):
                     return bad_request('IP invalid')
         else:
             try:
