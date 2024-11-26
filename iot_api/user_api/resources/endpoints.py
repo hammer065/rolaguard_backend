@@ -2329,18 +2329,18 @@ class DataCollectorTestAPI(Resource):
                 # record is not saved to db so we don't have an autoincremental id; create a random uuid instead
             )
 
-            if data['topics']:
-                for topic in data['topics']:
-                    new_mqtt_topic = MqttTopic(
-                        name=topic,
-                        data_collector_id=new_data_collector.id
-                    )
-
-                    try:
-                        new_mqtt_topic.save_to_db()
-                    except Exception as exc:
-                        new_mqtt_topic.rollback()
-                        raise exc
+#             if data['topics']:
+#                 for topic in data['topics']:
+#                     new_mqtt_topic = MqttTopic(
+#                         name=topic,
+#                         data_collector_id=new_data_collector.id
+#                     )
+# 
+#                     try:
+#                         new_mqtt_topic.save_to_db()
+#                     except Exception as exc:
+#                         new_mqtt_topic.rollback()
+#                         raise exc
 
             emit_data_collector_event('TEST', new_data_collector.to_json())
 
