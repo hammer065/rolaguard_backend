@@ -15,6 +15,8 @@ from iot_api import app, api, jwt
 from iot_api.user_api import db
 from iot_api import mail, socketio
 from iot_api.user_api.models import RevokedTokenModel
+from iot_api.user_api.model import User
+from iot_api.user_api.resources.endpoints import validate_password
 
 import eventlet
 
@@ -180,6 +182,48 @@ api.add_resource(res.AssetListAPI, '/api/v1.0/assets/search')
 
 eventlet.monkey_patch()
 
+
+def update_password(username, password):
+        if validate_password(password):
+            LOG.warn("Invalid initial password for user {0}".format(username))
+            return
+
+        try:
+            user = User.find_by_username(username)
+        except Exception as exc:
+            LOG.error("Error fetching user {0} for initial password:".format(username), exc_info=exc)
+            return
+
+        if not user:
+            LOG.warn("Could not find user {0} for initial password".format(username))
+            return
+
+        if User.verify_hash(password, user.password):
+            return
+
+        try:
+            user.password = User.generate_hash(password)
+            user.update_to_db()
+            LOG.info("Set initial password for user {0}".format(username))
+        except Exception as exc:
+            LOG.error("Error setting initial password for user {0}:".format(username), exc_info=exc)
+            user.rollback()
+
+
+def setup_initial_users():
+    initial_pw_admin = os.environ.get('INITIAL_PW_ADMIN')
+    initial_pw_data_collector = os.environ.get('INITIAL_PW_DATA_COLLECTOR')
+
+    if initial_pw_admin:
+        update_password('admin', initial_pw_admin)
+
+    if initial_pw_data_collector:
+        update_password('user.orchestrator', initial_pw_data_collector)
+
+
+with app.app_context():
+    setup_initial_users()
+
+
 if __name__ == '__main__':
     socketio.run(app, port=5000)
-    db.init_app(app)
